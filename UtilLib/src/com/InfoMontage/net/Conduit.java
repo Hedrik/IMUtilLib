@@ -2,6 +2,8 @@
  * Conduit.java
  * 
  * Created on Apr 11, 2004
+ * 
+ * $Version: $
  */
 
 /*
@@ -63,6 +65,9 @@ public final class Conduit
     extends AbstractSelectableChannel
 {
 
+    public static com.InfoMontage.version.CodeVersion implCodeVersion
+    = new com.InfoMontage.version.GenericCodeVersion("0.9.0.1b");
+    
     private static final int MAX_RECEIVER_TASK_THREADS = 4;
     protected static List conduits = new Vector();
     protected static final ReceiverTask RECEIVE_TASKS[] = new ReceiverTask[MAX_RECEIVER_TASK_THREADS];
