@@ -28,6 +28,8 @@
 package com.InfoMontage.version;
 
 import java.io.StreamTokenizer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 
@@ -41,9 +43,13 @@ public final class GenericCodeVersion
     public static final CodeVersion implCodeVersion = new GenericCodeVersion(
         "1.3a");
 
-    public static final CodeVersion NULL_CODE_VERSION = new GenericCodeVersion();
+    public static final GenericCodeVersion NULL_CODE_VERSION = new GenericCodeVersion();
 
     private static final long serialVersionUID = 6412827940260729099L;
+
+    private static final java.util.regex.Pattern CVS_REVISION_PATTERN = java.util.regex.Pattern
+        .compile("\\A\\$"
+            + "Revision: (\\d+(\\.\\d+(\\.\\d+(\\.\\d+)?)?)?) \\$\\Z");
 
     /** Creates a new instance of GenericVersion */
     private GenericCodeVersion() {
@@ -128,11 +134,22 @@ public final class GenericCodeVersion
     }
 
     public CodeVersion asCodeVersion() {
-        return (CodeVersion) this.clone();
+        return (GenericCodeVersion) this.clone();
+    }
+
+    public static CodeVersion codeVersionFromCVSRevisionString(
+        final String version)
+    {
+        String v = null;
+        Matcher m = CVS_REVISION_PATTERN.matcher(version);
+        if (m.matches()) {
+            v = m.group(1);
+        }
+        return asCodeVersion(v);
     }
 
     public static CodeVersion asCodeVersion(final String version) {
-        CodeVersion v = null;
+        GenericCodeVersion v = null;
         int[] ver = new int[] {
             DEFAULT_MAJOR_VERSION, DEFAULT_MINOR_VERSION,
             DEFAULT_MAINTENANCE_VERSION, DEFAULT_PATCH_VERSION };
@@ -151,7 +168,7 @@ public final class GenericCodeVersion
             boolean done = false;
             boolean mustEnd = false;
             int i = 0;
-            while ( (i++ < 4) && (valid) && (!done)) {
+            while ( (valid) && (!done) && (i++ < 4)) {
                 // first token must be an integer, and only numbers are words
                 if (st.nextToken() != StreamTokenizer.TT_WORD) {
                     if ( (st.ttype == StreamTokenizer.TT_EOF)
@@ -195,6 +212,8 @@ public final class GenericCodeVersion
                 && (ver[3] == DEFAULT_PATCH_VERSION)
                 && (buil == DEFAULT_BUILD_VERSION))
                 valid = false;
+            if (valid && ( (i > 4) && (!mustEnd)))
+                valid = false;
             if ( (i < 6) && valid) {
                 v = new GenericCodeVersion(ver[0], ver[1], ver[2], ver[3],
                     buil);
@@ -203,13 +222,15 @@ public final class GenericCodeVersion
             }
         } catch (java.io.IOException e) {
             v = null;
+        } catch (NullPointerException e) {
+            v = null;
         }
         return v;
     }
 
     protected Object clone() {
         super.clone();
-        CodeVersion v = null;
+        GenericCodeVersion v = null;
         if (NULL_CODE_VERSION.equals(this))
             v = NULL_CODE_VERSION;
         if (null != this) // can't happen, right?
