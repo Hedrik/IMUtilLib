@@ -268,13 +268,13 @@ public final class Conduit
 
     private transient Map outMsgQueues = new Hashtable(7, 0.86f);
 
-    private transient BigCounter numBytesSent=new BigCounter();
-    private transient BigCounter numBytesRcvd=new BigCounter();
-    private transient BigCounter numPktsSent=new BigCounter();
-    private transient BigCounter numPktsRcvd=new BigCounter();
-    private transient BigCounter numMsgsSent=new BigCounter();
-    private transient BigCounter numMsgsRcvd=new BigCounter();
-    
+    private transient BigCounter numBytesSent = new BigCounter();
+    private transient BigCounter numBytesRcvd = new BigCounter();
+    private transient BigCounter numPktsSent = new BigCounter();
+    private transient BigCounter numPktsRcvd = new BigCounter();
+    private transient BigCounter numMsgsSent = new BigCounter();
+    private transient BigCounter numMsgsRcvd = new BigCounter();
+
     private transient Short currPacketSize = new Short((short) 0);
 
     private final static long DEFAULT_EXPECTED_PACKET_LAG_MS = 500;
@@ -562,7 +562,7 @@ public final class Conduit
             l = recvReadBuf.limit();
             recvReadBuf.limit(recvReadBuf.capacity()).position(l);
             recvReadBuf.put(recvBuf);
-            numBytesRcvd.add(recvReadBuf.position()-l);
+            numBytesRcvd.add(recvReadBuf.position() - l);
             System.err.println("Added " + (recvReadBuf.position() - l)
                 + " bytes to ReadBuf!");
             recvReadBuf.limit(recvReadBuf.position()).position(p);
@@ -850,7 +850,7 @@ public final class Conduit
         numRead = recvReadBuf.position() - numRead;
         System.err.println("Extracted " + numRead
             + " bytes from recvReadBuf!");
-        if (null!=rp) {
+        if (null != rp) {
             numPktsRcvd.add(1);
         }
         return rp;
@@ -985,25 +985,32 @@ public final class Conduit
     synchronized public BigInteger getBytesRcvd() {
         return numBytesRcvd.get();
     }
-    
+
     synchronized public BigInteger getBytesSent() {
         return numBytesSent.get();
     }
-    
+
     synchronized public BigInteger getPktsRcvd() {
         return numPktsRcvd.get();
     }
-    
+
     synchronized public BigInteger getPktsSent() {
         return numPktsSent.get();
     }
-    
+
     synchronized public BigInteger getMsgsRcvd() {
         return numMsgsRcvd.get();
     }
-    
+
     synchronized public BigInteger getMsgsSent() {
         return numMsgsSent.get();
     }
-    
+
+    synchronized public void clearStatistics() {
+        numBytesSent.clear();
+        numBytesRcvd.clear();
+        numMsgsSent.clear();
+        numMsgsRcvd.clear();
+    }
+
 }
