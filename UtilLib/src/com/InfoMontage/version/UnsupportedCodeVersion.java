@@ -6,8 +6,8 @@
 
 /*
  * 
- * Part of the "Client/Server Helper" library, a project from Information
- * Montage. Copyright (C) 2004 Richard A. Mead
+ * Part of the "Information Montage Utility Library," a project from
+ * Information Montage. Copyright (C) 2004 Richard A. Mead
  * 
  * This library is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by
