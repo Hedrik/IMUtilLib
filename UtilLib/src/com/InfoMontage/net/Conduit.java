@@ -65,8 +65,8 @@ public final class Conduit
     extends AbstractSelectableChannel
 {
 
-    public static com.InfoMontage.version.CodeVersion implCodeVersion = new com.InfoMontage.version.GenericCodeVersion(
-        "$Revision$");
+    public static com.InfoMontage.version.CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
+        .codeVersionFromCVSRevisionString("$Revision$");
 
     private static final int MAX_RECEIVER_TASK_THREADS = 4;
     protected static List conduits = new Vector();
