@@ -79,7 +79,7 @@ public abstract class AbstractCodeVersion
                 throw new java.lang.AssertionError(
                     new IllegalArgumentException(
                         "Attempt to create a CodeVersion object with an invalid String as the version\n"
-                            + "String parrameter was: \"" + version + "\""));
+                            + "String parameter was: \"" + version + "\""));
             } else {
                 maj = v.major;
                 min = v.minor;
