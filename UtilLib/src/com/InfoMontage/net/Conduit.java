@@ -272,8 +272,8 @@ public final class Conduit
     private transient BigCounter numBytesRcvd = new BigCounter();
     private transient BigCounter numPktsSent = new BigCounter();
     private transient BigCounter numPktsRcvd = new BigCounter();
-    private transient BigCounter numMsgsSent = new BigCounter();
-    private transient BigCounter numMsgsRcvd = new BigCounter();
+    private transient BigCounter numBundlesSent = new BigCounter();
+    private transient BigCounter numBundlesRcvd = new BigCounter();
 
     private transient Short currPacketSize = new Short((short) 0);
 
@@ -805,7 +805,7 @@ public final class Conduit
                                 e.printStackTrace();
                             }
                             retValue = m.remaining();
-                            numMsgsRcvd.add(1);
+                            numBundlesRcvd.add(1);
                             buf.put(m);
                             // will remove from queue when recieve Ack of Ack
                             // or timeout while waiting for Ack of Ack
@@ -919,7 +919,7 @@ public final class Conduit
                  */
                 sendPacket(pa[i]);
             }
-            numMsgsSent.add(1);
+            numBundlesSent.add(1);
         }
     }
 
@@ -998,19 +998,19 @@ public final class Conduit
         return numPktsSent.get();
     }
 
-    synchronized public BigInteger getMsgsRcvd() {
-        return numMsgsRcvd.get();
+    synchronized public BigInteger getBundlesRcvd() {
+        return numBundlesRcvd.get();
     }
 
-    synchronized public BigInteger getMsgsSent() {
-        return numMsgsSent.get();
+    synchronized public BigInteger getBundlesSent() {
+        return numBundlesSent.get();
     }
 
     synchronized public void clearStatistics() {
         numBytesSent.clear();
         numBytesRcvd.clear();
-        numMsgsSent.clear();
-        numMsgsRcvd.clear();
+        numBundlesSent.clear();
+        numBundlesRcvd.clear();
     }
 
 }
