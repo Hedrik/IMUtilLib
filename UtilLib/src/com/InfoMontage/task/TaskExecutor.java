@@ -65,117 +65,89 @@ final class TaskExecutor
     TaskExecutor(TaskExecutorPool factory, ThreadGroup group, int stackSize)
     {
         super(group, null, "Task processor", stackSize);
-        if (log.isLoggable(Level.FINER)) {
-            log.entering("com.InfoMontage.task.TaskExecutor",
-                "TaskExecutor(TaskExecutorPool factory = " + factory
-                    + ", ThreadGroup group = " + group
-                    + ", int stackSize = " + stackSize + ")",
-                "start of method");
-        }
+        assert (log.entering("com.InfoMontage.task.TaskExecutor",
+            "TaskExecutor(TaskExecutorPool factory = " + factory
+                + ", ThreadGroup group = " + group + ", int stackSize = "
+                + stackSize + ")", "start of method"));
 
-        if (null == factory) { throw (IllegalArgumentException) new IllegalArgumentException(
-            "Attempt to create a TaskExecutor with a null TaskExecutorPool!")
-            .initCause(new NullPointerException()); }
+        if (null == factory) {
+            IllegalArgumentException e = (IllegalArgumentException) new IllegalArgumentException(
+                "Attempt to create a TaskExecutor with a null TaskExecutorPool!")
+                .initCause(new NullPointerException());
+            assert (log.warning(e.toString()));
+            throw e;
+        }
         myFactory = factory;
 
-        if (log.isLoggable(Level.FINER)) {
-            log.exiting("com.InfoMontage.task.TaskExecutor",
-                "TaskExecutor(TaskExecutorPool factory = " + factory
-                    + ", ThreadGroup group = " + group
-                    + ", int stackSize = " + stackSize + ")",
-                "end of method");
-        }
+        assert (log.exiting("com.InfoMontage.task.TaskExecutor",
+            "TaskExecutor(TaskExecutorPool factory = " + factory
+                + ", ThreadGroup group = " + group + ", int stackSize = "
+                + stackSize + ")", "end of method"));
     }
 
     synchronized void validateTaskThread() {
-        if (log.isLoggable(Level.WARNING)) {
-            log.warning("Validating TaskExecutor. -  : exception: "
-                + null);
-        }
+        assert (log.finer("Validating TaskExecutor."));
         validExecutor.setState(true);
-        if (log.isLoggable(Level.WARNING)) {
-            log.warning("TaskExecutor Validated. -  : exception: "
-                + null);
-        }
+        assert (log.finer("TaskExecutor Validated."));
     }
 
     synchronized void executeTask(Task t)
         throws IllegalStateException, IllegalMonitorStateException
     {
-        if (log.isLoggable(Level.FINER)) {
-            log.entering("com.InfoMontage.task.TaskExecutor",
-                "executeTask(Task t = " + t + ")", "start of method");
-        }
+        assert (log.entering("com.InfoMontage.task.TaskExecutor",
+            "executeTask(Task t = " + t + ")", "start of method"));
 
         if (!validExecutor.getState()) {
-            if (log.isLoggable(Level.WARNING)) {
-                log
-                    .warning("executeTask: ARGH! not validExecutor. -  : exception: "
-                        + null);
-            }
-            throw new IllegalStateException(
+            IllegalStateException e = new IllegalStateException(
                 "Attempt to use a TaskExecutor that is still a member of the"
                     + " TaskExecutorPool's TaskExecutor pool!");
+            assert (log.warning(e.toString()));
+            throw e;
         }
         if (!waiting.getState()) {
-            if (log.isLoggable(Level.WARNING)) {
-                log
-                    .warning("executeTask: ARGH! not waiting. -  : exception: "
-                        + null);
-            }
-            throw new IllegalStateException(
+            IllegalStateException e = new IllegalStateException(
                 "Attempt to use a TaskExecutor that"
                     + " is already executing a Task!");
+            assert (log.warning(e.toString()));
+            throw e;
         }
         if (!this.running.getState()) {
-            if (log.isLoggable(Level.WARNING)) {
-                log
-                    .warning("executeTask: ARGH! not running. -  : exception: "
-                        + null);
-            }
-            throw new IllegalStateException(
+            IllegalStateException e = new IllegalStateException(
                 "Attempt to use a TaskExecutor that"
                     + " has not been started!");
+            assert (log.warning(e.toString()));
+            throw e;
         }
         myTask = t;
         synchronized (this.waiting) {
             this.waiting.notify();
         }
 
-        if (log.isLoggable(Level.FINER)) {
-            log.exiting("com.InfoMontage.task.TaskExecutor",
-                "executeTask(Task t = " + t + ")", "end of method");
-        }
+        assert (log.exiting("com.InfoMontage.task.TaskExecutor",
+            "executeTask(Task t = " + t + ")", "end of method"));
     }
 
     synchronized boolean isWaiting() {
-        if (log.isLoggable(Level.FINER)) {
-            log.entering("com.InfoMontage.task.TaskExecutor",
-                "isWaiting()", "start of method");
-        }
+        assert (log.entering("com.InfoMontage.task.TaskExecutor",
+            "isWaiting()", "start of method"));
 
 
         boolean returnboolean = waiting.getState();
-        if (log.isLoggable(Level.FINER)) {
-            log.exiting("com.InfoMontage.task.TaskExecutor", "isWaiting()",
-                "end of method - return value = " + returnboolean);
-        }
+        assert (log.exiting("com.InfoMontage.task.TaskExecutor",
+            "isWaiting()", "end of method - return value = "
+                + returnboolean));
         return returnboolean;
     }
 
     public void run() throws IllegalStateException {
-        if (log.isLoggable(Level.FINER)) {
-            log.entering("com.InfoMontage.task.TaskExecutor", "run()",
-                "start of method");
-        }
+        assert (log.entering("com.InfoMontage.task.TaskExecutor", "run()",
+            "start of method"));
 
         if (running.getState()) {
-            if (log.isLoggable(Level.WARNING)) {
-                log
-                    .warning("run:ARGH! running. -  : exception: " + null);
-            }
-            throw new IllegalStateException(
+            IllegalStateException e = new IllegalStateException(
                 "Attempt to run a ThreadTask that" + " is already running!");
+            assert (log.warning(e.toString()));
+            throw e;
         }
         running.setState(true);
         while (running.getState()) {
@@ -186,10 +158,8 @@ final class TaskExecutor
                     waiting.setState(false);
                 }
             } catch (InterruptedException e) {
-                if (log.isLoggable(Level.FINER)) {
-                    log.throwing("com.InfoMontage.task.TaskExecutor",
-                        "run()", e);
-                }
+                assert (log.throwing("com.InfoMontage.task.TaskExecutor",
+                    "run()", e));
 
                 // No idea why this would happen...
                 throw (RuntimeException) new RuntimeException()
@@ -208,27 +178,21 @@ final class TaskExecutor
             }
         }
 
-        if (log.isLoggable(Level.FINER)) {
-            log.exiting("com.InfoMontage.task.TaskExecutor", "run()",
-                "end of method");
-        }
+        assert (log.exiting("com.InfoMontage.task.TaskExecutor", "run()",
+            "end of method"));
     }
 
     public synchronized void stopRunning()
         throws IllegalMonitorStateException
     {
-        if (log.isLoggable(Level.FINER)) {
-            log.entering("com.InfoMontage.task.TaskExecutor",
-                "stopRunning()", "start of method");
-        }
+        assert (log.entering("com.InfoMontage.task.TaskExecutor",
+            "stopRunning()", "start of method"));
 
         running.setState(false);
         waiting.notify();
 
-        if (log.isLoggable(Level.FINER)) {
-            log.exiting("com.InfoMontage.task.TaskExecutor",
-                "stopRunning()", "end of method");
-        }
+        assert (log.exiting("com.InfoMontage.task.TaskExecutor",
+            "stopRunning()", "end of method"));
     }
 
 }
