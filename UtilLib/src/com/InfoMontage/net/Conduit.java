@@ -54,6 +54,7 @@ import com.InfoMontage.common.Defaults;
 import com.InfoMontage.math.BigCounter;
 import com.InfoMontage.task.AbstractTask;
 import com.InfoMontage.task.TaskExecutorPool;
+import com.InfoMontage.util.AssertableLogger;
 import com.InfoMontage.util.Buffer;
 
 /**
@@ -64,6 +65,12 @@ import com.InfoMontage.util.Buffer;
 public final class Conduit
     extends AbstractSelectableChannel
 {
+
+    /**
+     * Logger for this class
+     */
+    private static final AssertableLogger log = new AssertableLogger(
+        Conduit.class.getName());
 
     public static com.InfoMontage.version.CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
         .codeVersionFromCVSRevisionString("$Revision$");
@@ -81,6 +88,12 @@ public final class Conduit
         extends Thread
     {
 
+        /**
+         * Logger for this class
+         */
+        private static final AssertableLogger log = new AssertableLogger(
+            ConduitMonitorThread.class.getName());
+
 
         /**
          *  
@@ -92,12 +105,12 @@ public final class Conduit
         public void run() {
             int i;
             Object[][] parms = new Object[MAX_RECEIVER_TASK_THREADS][1];
-            System.err.println("Conduit monitoring thread starting.");
+            assert (log.info("Conduit monitoring thread starting."));
             while (true) {
                 synchronized (Conduit.conduits) {
                     if (!Conduit.conduits.isEmpty()) {
-                        System.err
-                            .println("Conduit monitor thread beginning task check.");
+                        assert (log
+                            .info("Conduit monitor thread beginning task check."));
                         for (i = 0; i < Conduit.MAX_RECEIVER_TASK_THREADS; i++ )
                         {
                             if (null != Conduit.RECEIVE_TASKS[i]) {
@@ -112,19 +125,16 @@ public final class Conduit
                             }
                         }
                         if (i < Conduit.MAX_RECEIVER_TASK_THREADS) {
-                            System.err
-                                .println("Conduit monitor thread has an"
-                                    + " available task to use. (#" + i
-                                    + ")");
+                            assert (log
+                                .info("Conduit monitor thread has an available task to use. (#"
+                                    + i + ")"));
                             synchronized (Conduit.lockForNextConduitToCheck)
                             {
-                                System.err
-                                    .println("Conduit monitor thread has"
-                                        + " aquired lock.");
-                                System.err
-                                    .println("Conduit monitor checking"
-                                        + " conduit #"
-                                        + Conduit.nextConduitToCheck + ".");
+                                assert (log
+                                    .info("Conduit monitor thread has aquired lock."));
+                                assert (log
+                                    .info("Conduit monitor checking conduit #"
+                                        + Conduit.nextConduitToCheck + "."));
                                 parms[i][0] = Conduit.conduits
                                     .get(Conduit.nextConduitToCheck++ );
                                 if (Conduit.nextConduitToCheck >= Conduit.conduits
@@ -133,8 +143,8 @@ public final class Conduit
                                     Conduit.nextConduitToCheck = 0;
                                 }
                             }
-                            System.err
-                                .println("Conduit monitor thread has released lock.");
+                            assert (log
+                                .info("Conduit monitor thread has released lock."));
                             Conduit.RECEIVE_TASKS[i]
                                 .setTaskParameters(parms[i]);
                             try {
@@ -149,15 +159,16 @@ public final class Conduit
                 synchronized (Conduit.lockForNextConduitToCheck) {
                     if (Conduit.nextConduitToCheck == 0) {
                         try {
-                            System.err
-                                .println("Conduit monitor thread sleeping.");
+                            assert (log
+                                .info("Conduit monitor thread sleeping."));
                             Thread.sleep(100);
                         } catch (InterruptedException e) {
                             // TODO Auto-generated catch block
-                            e.printStackTrace();
+                            assert (log.throwing(
+                                "com.InfoMontage.net.ConduitMonitorThread",
+                                "run()", e));
                         }
-                        System.err
-                            .println("Conduit monitor thread woke up.");
+                        assert (log.info("Conduit monitor thread woke up."));
                     }
                 }
             }
@@ -172,6 +183,12 @@ public final class Conduit
     public static class ReceiverTask
         extends AbstractTask
     {
+
+        /**
+         * Logger for this class
+         */
+        private static final AssertableLogger log = new AssertableLogger(
+            ReceiverTask.class.getName());
 
         /*
          * (non-Javadoc)
@@ -195,9 +212,9 @@ public final class Conduit
         protected void doTask() {
             Iterator i;
             Conduit c;
-            System.err.println("Beginning task.");
+            assert (log.info("Beginning task."));
             synchronized (this.params[0]) {
-                System.err.println("Attempting recieve.");
+                assert (log.info("Attempting recieve."));
                 c = (Conduit) (this.params[0]);
                 try {
                     c.recieve();
@@ -214,7 +231,9 @@ public final class Conduit
                         //                        }
                     } else {
                         // Still open!
-                        e.printStackTrace();
+                        assert (log.throwing(
+                            "com.InfoMontage.net.ReceiverTask", "doTask()",
+                            e));
                         throw (IllegalStateException) new IllegalStateException()
                             .initCause(e);
                     }
@@ -306,6 +325,12 @@ public final class Conduit
 
     private static class MsgQKey {
 
+        /**
+         * Logger for this class
+         */
+        private static final AssertableLogger log = new AssertableLogger(
+            MsgQKey.class.getName());
+
         transient final long GENERATION_ID;
 
         transient final long MSG_ID;
@@ -342,6 +367,12 @@ public final class Conduit
     }
 
     private static class MsgQValue {
+
+        /**
+         * Logger for this class
+         */
+        private static final AssertableLogger log = new AssertableLogger(
+            MsgQValue.class.getName());
 
         transient ArrayList packets;
 
@@ -473,8 +504,8 @@ public final class Conduit
     private static void addConduit(Conduit c) {
         synchronized (conduits) {
             // TBD: update nextConduitToCheck?
-            System.err.println("Added a Conduit to list: had "
-                + conduits.size());
+            assert (log.info("Added a Conduit to list: had "
+                + conduits.size()));
             conduits.add(c);
         }
     }
@@ -482,12 +513,11 @@ public final class Conduit
     static void removeConduit(Conduit c) {
         synchronized (conduits) {
             if (!conduits.contains(c)) {
-                System.err
-                    .println("Requesting removal of Conduit from list"
-                        + " which is not IN list!");
+                assert (log
+                    .info("Requesting removal of Conduit from list which is not IN list!"));
             } else {
-                System.err.println("Removing Conduit from list: had "
-                    + conduits.size());
+                assert (log.info("Removing Conduit from list: had "
+                    + conduits.size()));
                 synchronized (lockForNextConduitToCheck) {
                     if (nextConduitToCheck > conduits.indexOf(c)) {
                         nextConduitToCheck-- ;
@@ -542,7 +572,7 @@ public final class Conduit
                 this.close();
             }
         }
-        System.err.println("Got " + got + " bytes!");
+        assert (log.info("Got " + got + " bytes!"));
         recvBuf.limit(recvBuf.position()).position(p);
         if (got > 0 || recvBuf.hasRemaining()) {
             if (recvReadBuf.hasRemaining()) {
@@ -568,8 +598,8 @@ public final class Conduit
             recvReadBuf.limit(recvReadBuf.capacity()).position(l);
             recvReadBuf.put(recvBuf);
             numBytesRcvd.add(recvReadBuf.position() - l);
-            System.err.println("Added " + (recvReadBuf.position() - l)
-                + " bytes to ReadBuf!");
+            assert (log.info("Added " + (recvReadBuf.position() - l)
+                + " bytes to ReadBuf!"));
             recvReadBuf.limit(recvReadBuf.position()).position(p);
         } else {
             // Nothing in recieve buffer, and nothing came in on the wire
@@ -627,7 +657,8 @@ public final class Conduit
                 } catch (IllegalArgumentException e) {
                     // bad header!
                     // TBD: handle bad datastream header
-                    e.printStackTrace();
+                    assert (log.throwing("com.InfoMontage.net.Conduit",
+                        "read(ByteBuffer buf = " + buf + ")", e));
                 } catch (BufferUnderflowException e) {
                     // not enough data! Have we timed out?
                     if ( (System.currentTimeMillis() - this.lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 1]) > (LAG_TIMEOUT_MULTIPLE * expectedPacketLagMs))
@@ -640,14 +671,15 @@ public final class Conduit
                         // TBD: request resend if enough metadata present
                         // not enough metadata, and we've timed out...
                         // TBD: handle timeout with partial packet
-                        System.err.println("Timeout with partial packet!\n"
-                            + "   Partial data="
-                            + com.InfoMontage.util.Buffer
-                                .toString(recvReadBuf));
+                        assert (log
+                            .info("Timeout with partial packet!n   Partial data="
+                                + com.InfoMontage.util.Buffer
+                                    .toString(recvReadBuf)));
                     }
                 } catch (IOException e) {
                     // TODO Auto-generated catch block
-                    e.printStackTrace();
+                    assert (log.throwing("com.InfoMontage.net.Conduit",
+                        "read(ByteBuffer buf = " + buf + ")", e));
                 }
                 if (null == p) {
                     // should only get here if buffer was null -
@@ -658,8 +690,7 @@ public final class Conduit
                         + recvReadBuf.remaining() + "}"
                         + Buffer.toString(recvReadBuf));
                 } else {
-                    System.err.println("***Received packet: "
-                        + p.toString());
+                    assert (log.info("***Received packet: " + p.toString()));
                     this.numTimeouts = 0;
                     // update expected packet lag time
                     this.recvTimesSum -= lastPacketRecvTimes[1]
@@ -689,23 +720,23 @@ public final class Conduit
                             if (this.outMsgQueues.containsKey(mqk)) {
                                 // Ack the Ack and remove from queue
                                 // TBD: validate removable!
-                                System.err
-                                    .println("Packet is Ack of sent message "
+                                assert (log
+                                    .info("Packet is Ack of sent message "
                                         + mqk.toString()
-                                        + ", sending Ack of Ack.");
+                                        + ", sending Ack of Ack."));
                                 sendAckPacket(p.genID, p.msgID);
                                 this.outMsgQueues.remove(mqk);
-                                System.err.println(outMsgQueues.size()
-                                    + " entries left in sent queue.");
+                                assert (log.info(outMsgQueues.size()
+                                    + " entries left in sent queue."));
                             } else if (this.inMsgQueues.containsKey(mqk)) {
                                 // Remove from queue!
                                 // TBD: validate removable!
-                                System.err
-                                    .println("Packet is Ack of Ack of recieved "
-                                        + "message " + mqk.toString());
+                                assert (log
+                                    .info("Packet is Ack of Ack of recieved message "
+                                        + mqk.toString()));
                                 this.inMsgQueues.remove(mqk);
-                                System.err.println(inMsgQueues.size()
-                                    + " entries left in recieved queue.");
+                                assert (log.info(inMsgQueues.size()
+                                    + " entries left in recieved queue."));
                             } else {
                                 // TBD: what to do if we got an Ack for
                                 // something
@@ -717,7 +748,7 @@ public final class Conduit
                         }
                     } else {
                         retValue = this.queuePacket(p, buf);
-                        System.err.println(" messageBufLen=" + retValue);
+                        assert (log.info(" messageBufLen=" + retValue));
                     }
                 }
             }
@@ -798,16 +829,21 @@ public final class Conduit
                     } finally {
                         if (m != null) {
                             try {
-                                System.err
-                                    .println("Sending Ack of recieved message "
-                                        + mqk.toString());
+                                assert (log
+                                    .info("Sending Ack of recieved message "
+                                        + mqk.toString()));
                                 sendAckPacket(h.genID, h.msgID);
                                 mqv.ackSent = true;
                                 mqv.setExpectedCompletion(
                                     expectedPacketLagMs, 1);
                             } catch (IOException e) {
                                 // TODO handle inability to send Ack
-                                e.printStackTrace();
+                                assert (log
+                                    .throwing(
+                                        "com.InfoMontage.net.Conduit",
+                                        "queuePacket(Packet pkt = " + pkt
+                                            + ", ByteBuffer buf = " + buf
+                                            + ")", e));
                             }
                             retValue = m.remaining();
                             numBundlesRcvd.add(1);
@@ -853,8 +889,8 @@ public final class Conduit
         numRead = recvReadBuf.position();
         rp = packetFactory.valueOf(this.recvReadBuf);
         numRead = recvReadBuf.position() - numRead;
-        System.err.println("Extracted " + numRead
-            + " bytes from recvReadBuf!");
+        assert (log.info("Extracted " + numRead
+            + " bytes from recvReadBuf!"));
         if (null != rp) {
             numPktsRcvd.add(1);
         }
@@ -932,14 +968,14 @@ public final class Conduit
         //      Send Ack packet
         Packet ackPacket = this.packetFactory.newPacket(g, m, 0, (short) 0,
             null);
-        System.err.println("Sending Ack packet");
+        assert (log.info("Sending Ack packet"));
         try {
             sendPacket(ackPacket);
         } catch (IOException e) {
             // TBD: handle inability to send Ack packet
             throw e;
         } finally {
-            System.err.println("Sent Ack packet");
+            assert (log.info("Sent Ack packet"));
         }
     }
 
@@ -947,19 +983,19 @@ public final class Conduit
         //      Send Nak packet
         Packet nakPacket = this.packetFactory.newPacket(g, m, 0,
             (short) -1, null);
-        System.err.println("Sending Nak packet");
+        assert (log.info("Sending Nak packet"));
         try {
             sendPacket(nakPacket);
         } catch (IOException e) {
             // TBD: handle inability to send Nak packet
             throw e;
         } finally {
-            System.err.println("Sent Nak packet");
+            assert (log.info("Sent Nak packet"));
         }
     }
 
     void sendPacket(Packet p) throws IOException {
-        System.err.println("Sending packet: " + p.toString());
+        assert (log.info("Sending packet: " + p.toString()));
         int nw = 0;
         try {
             nw = this.byteChannel.write(p.toByteBuffer());
@@ -968,7 +1004,7 @@ public final class Conduit
             throw e;
         } finally {
             numBytesSent.add(nw);
-            System.err.println("Sent " + nw + " bytes.");
+            assert (log.info("Sent " + nw + " bytes."));
             // TBD: update statistics
             numPktsSent.add(1);
         }
