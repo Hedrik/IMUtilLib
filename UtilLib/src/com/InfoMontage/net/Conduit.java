@@ -29,6 +29,7 @@ package com.InfoMontage.net;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.math.BigInteger;
 import java.net.DatagramSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -48,6 +49,7 @@ import java.util.Map;
 import java.util.Vector;
 
 import com.InfoMontage.common.Defaults;
+import com.InfoMontage.math.BigCounter;
 import com.InfoMontage.task.AbstractTask;
 import com.InfoMontage.task.TaskExecutorPool;
 import com.InfoMontage.util.Buffer;
@@ -266,6 +268,13 @@ public final class Conduit
 
     private transient Map outMsgQueues = new Hashtable(7, 0.86f);
 
+    private transient BigCounter numBytesSent=new BigCounter();
+    private transient BigCounter numBytesRcvd=new BigCounter();
+    private transient BigCounter numPktsSent=new BigCounter();
+    private transient BigCounter numPktsRcvd=new BigCounter();
+    private transient BigCounter numMsgsSent=new BigCounter();
+    private transient BigCounter numMsgsRcvd=new BigCounter();
+    
     private transient Short currPacketSize = new Short((short) 0);
 
     private final static long DEFAULT_EXPECTED_PACKET_LAG_MS = 500;
@@ -553,6 +562,7 @@ public final class Conduit
             l = recvReadBuf.limit();
             recvReadBuf.limit(recvReadBuf.capacity()).position(l);
             recvReadBuf.put(recvBuf);
+            numBytesRcvd.add(recvReadBuf.position()-l);
             System.err.println("Added " + (recvReadBuf.position() - l)
                 + " bytes to ReadBuf!");
             recvReadBuf.limit(recvReadBuf.position()).position(p);
@@ -698,7 +708,7 @@ public final class Conduit
                                 // did't send
                             }
                         } else { // handle Nak packets
-
+                            // TBD: Nak means...
                         }
                     } else {
                         retValue = this.queuePacket(p, buf);
@@ -795,6 +805,7 @@ public final class Conduit
                                 e.printStackTrace();
                             }
                             retValue = m.remaining();
+                            numMsgsRcvd.add(1);
                             buf.put(m);
                             // will remove from queue when recieve Ack of Ack
                             // or timeout while waiting for Ack of Ack
@@ -839,6 +850,9 @@ public final class Conduit
         numRead = recvReadBuf.position() - numRead;
         System.err.println("Extracted " + numRead
             + " bytes from recvReadBuf!");
+        if (null!=rp) {
+            numPktsRcvd.add(1);
+        }
         return rp;
     }
 
@@ -857,7 +871,7 @@ public final class Conduit
         cb.put(cbuf, off, len);
         this.sendBuf.limit(2 * len);
         do {
-            this.byteChannel.write(this.sendBuf);
+            numBytesSent.add(this.byteChannel.write(this.sendBuf));
         } while (this.sendBuf.hasRemaining());
         this.sendBuf.clear();
         this.sendBuf.limit(0);
@@ -905,6 +919,7 @@ public final class Conduit
                  */
                 sendPacket(pa[i]);
             }
+            numMsgsSent.add(1);
         }
     }
 
@@ -944,11 +959,13 @@ public final class Conduit
         try {
             nw = this.byteChannel.write(p.toByteBuffer());
         } catch (IOException e) {
-            // TBD: handle inability to send Ack packet
+            // TBD: handle inability to send packet
             throw e;
         } finally {
+            numBytesSent.add(nw);
             System.err.println("Sent " + nw + " bytes.");
             // TBD: update statistics
+            numPktsSent.add(1);
         }
     }
 
@@ -965,4 +982,28 @@ public final class Conduit
         throw new UnsupportedOperationException();
     }
 
+    synchronized public BigInteger getBytesRcvd() {
+        return numBytesRcvd.get();
+    }
+    
+    synchronized public BigInteger getBytesSent() {
+        return numBytesSent.get();
+    }
+    
+    synchronized public BigInteger getPktsRcvd() {
+        return numPktsRcvd.get();
+    }
+    
+    synchronized public BigInteger getPktsSent() {
+        return numPktsSent.get();
+    }
+    
+    synchronized public BigInteger getMsgsRcvd() {
+        return numMsgsRcvd.get();
+    }
+    
+    synchronized public BigInteger getMsgsSent() {
+        return numMsgsSent.get();
+    }
+    
 }
