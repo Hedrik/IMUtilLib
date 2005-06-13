@@ -56,7 +56,7 @@ public abstract class AbstractTask
      * Comment for <code>params</code>
      */
     protected volatile Object[] params = null;
-    protected boolean paramsSet = false;
+    protected volatile boolean paramsSet = false;
     
     /**
      * Comment for <code>processing</code>
@@ -84,7 +84,7 @@ public abstract class AbstractTask
      */
     public float percentComplete() {
         // default is 0% until done
-        return (isProcessing() && null != params) ? 0.0f : 100.0f;
+        return (isProcessing() && paramsSet) ? 0.0f : 100.0f;
     }
 
     /*
