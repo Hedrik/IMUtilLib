@@ -35,6 +35,7 @@ import java.math.BigInteger;
 import java.net.DatagramSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -49,15 +50,31 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
+import java.util.logging.Logger;
+
+import javax.net.ssl.SSLSocket;
+
+import sun.security.krb5.internal.p;
 
 import com.InfoMontage.common.Defaults;
 import com.InfoMontage.math.BigCounter;
 import com.InfoMontage.task.AbstractTask;
+import com.InfoMontage.task.Task;
+import com.InfoMontage.task.TaskExecutor;
 import com.InfoMontage.task.TaskExecutorPool;
 import com.InfoMontage.util.AssertableLogger;
+import com.InfoMontage.util.BooleanState;
 import com.InfoMontage.util.Buffer;
 
 /**
+ * An abstraction of communications that hides some of the low-level drudgery
+ * of polling {@link Socket}s: periodically checking connectivity, breaking
+ * up I/O into "reasonable" size {@link Packet}s and reassembling them on the
+ * receiving side, retransmission of {@link Packet}s upon timeout,
+ * maintaining I/O statistics, etc. Will work with {@link Socket}s,
+ * {@link SSLSocket}s,{@link DatagramSocket}s, and any other class that
+ * implements both the {@link SelectableChannel}and the {@link ByteChannel}
+ * interfaces.
  * 
  * @author Richard A. Mead <BR>
  *         Information Montage
@@ -67,47 +84,85 @@ public final class Conduit
 {
 
     /**
-     * Logger for this class
+     * {@link Logger}for this class.
      */
     private static final AssertableLogger log = new AssertableLogger(
         Conduit.class.getName());
 
+    /**
+     * Code version for the Conduit class. Determined from CVS file revision.
+     */
     public static com.InfoMontage.version.CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
         .codeVersionFromCVSRevisionString("$Revision$");
 
-    private static final int MAX_RECEIVER_TASK_THREADS = 4;
+    /**
+     * Collection of all instantiated Conduits.
+     */
     protected static List conduits = new Vector();
-    protected static final ReceiverTask RECEIVE_TASKS[] = new ReceiverTask[MAX_RECEIVER_TASK_THREADS];
+    /**
+     * An internal object used for synchronization of access to the collection
+     * of instantiated Conduits and it's index variable.
+     */
     protected static Object lockForNextConduitToCheck = new Object();
+    /**
+     * An index into the collection of instantiated Conduits.
+     */
     protected static int nextConduitToCheck = 0;
+    protected BooleanState beingProcessed = new BooleanState(false);
 
+    /**
+     * Maximum number of {@link Thread}s allocated for receiving data from
+     * all Sockets.
+     */
+    private static final int MAX_RECEIVER_TASK_THREADS = 4;
+    /**
+     * Array of {@link Task}s used by the receiver threads.
+     */
+    protected static final ReceiverTask RECEIVE_TASKS[] = new ReceiverTask[MAX_RECEIVER_TASK_THREADS];
+    /**
+     * The pool of {@link TaskExecutor}s used to process ReceiverTasks.
+     */
     protected static final TaskExecutorPool RECEIVER_TASK_FACTORY = TaskExecutorPool
         .getPool("ConduitReceivers", 1, MAX_RECEIVER_TASK_THREADS, false);
 
+    /**
+     * Master {@link Thread}monitoring all instantiated Conduits for
+     * available data.
+     * 
+     * @author Richard A. Mead <BR>
+     *         Information Montage
+     */
     private static class ConduitMonitorThread
         extends Thread
     {
 
         /**
-         * Logger for this class
+         * {@link Logger}for this class.
          */
         private static final AssertableLogger log = new AssertableLogger(
             ConduitMonitorThread.class.getName());
 
 
         /**
-         *  
+         * The constructor names the thread.
          */
         private ConduitMonitorThread() {
             super("Conduit monitor");
         }
 
+        /**
+         * Monitoring code lives here.
+         * 
+         * @see java.lang.Thread#run()
+         */
         public void run() {
             int i;
             Object[][] parms = new Object[MAX_RECEIVER_TASK_THREADS][1];
             assert (log.info("Conduit monitoring thread starting."));
             while (true) {
+                assert (log.gettingLock(Conduit.conduits));
                 synchronized (Conduit.conduits) {
+                    assert (log.gotLock(Conduit.conduits));
                     if (!Conduit.conduits.isEmpty()) {
                         assert (log
                             .info("Conduit monitor thread beginning task check."));
@@ -125,17 +180,22 @@ public final class Conduit
                             }
                         }
                         if (i < Conduit.MAX_RECEIVER_TASK_THREADS) {
+                            Conduit ctc;
                             assert (log
-                                .info("Conduit monitor thread has an available task to use. (#"
+                                .finer("Conduit monitor thread has an available task to use. (#"
                                     + i + ")"));
+                            assert (log
+                                .gettingLock(Conduit.lockForNextConduitToCheck));
                             synchronized (Conduit.lockForNextConduitToCheck)
                             {
                                 assert (log
-                                    .info("Conduit monitor thread has aquired lock."));
+                                    .gotLock(Conduit.lockForNextConduitToCheck));
                                 assert (log
-                                    .info("Conduit monitor checking conduit #"
-                                        + Conduit.nextConduitToCheck + "."));
-                                parms[i][0] = Conduit.conduits
+                                    .finer("Conduit monitor checking conduit #"
+                                        + Conduit.nextConduitToCheck
+                                        + 1
+                                        + "."));
+                                ctc = (Conduit) Conduit.conduits
                                     .get(Conduit.nextConduitToCheck++ );
                                 if (Conduit.nextConduitToCheck >= Conduit.conduits
                                     .size())
@@ -144,54 +204,75 @@ public final class Conduit
                                 }
                             }
                             assert (log
-                                .info("Conduit monitor thread has released lock."));
-                            Conduit.RECEIVE_TASKS[i]
-                                .setTaskParameters(parms[i]);
-                            try {
-                                Conduit.RECEIVER_TASK_FACTORY.doTask(
-                                    Conduit.RECEIVE_TASKS[i], false);
-                            } catch (InterruptedException e) {
-                                // TODO Close the conduit??
+                                .releasedLock(Conduit.lockForNextConduitToCheck));
+                            // No need for sync locks here since this is the
+                            // only thread that can initiate processing of a
+                            // Conduit.
+                            if (!ctc.beingProcessed.getState()) {
+                                ctc.beingProcessed.setState(true);
+                                parms[i][0] = ctc;
+                                Conduit.RECEIVE_TASKS[i]
+                                    .setTaskParameters(parms[i]);
+                                try {
+                                    Conduit.RECEIVER_TASK_FACTORY.doTask(
+                                        Conduit.RECEIVE_TASKS[i], false);
+                                } catch (InterruptedException e) {
+                                    // TODO Close the conduit??
+                                }
                             }
                         }
                     }
                 }
+                assert (log.releasedLock(Conduit.conduits));
+                boolean shouldSleep = false;
+                assert (log.gettingLock(Conduit.lockForNextConduitToCheck));
                 synchronized (Conduit.lockForNextConduitToCheck) {
-                    if (Conduit.nextConduitToCheck == 0) {
-                        try {
-                            assert (log
-                                .info("Conduit monitor thread sleeping."));
-                            Thread.sleep(100);
-                        } catch (InterruptedException e) {
-                            // TODO Auto-generated catch block
-                            assert (log.throwing(
-                                "com.InfoMontage.net.ConduitMonitorThread",
-                                "run()", e));
-                        }
-                        assert (log.info("Conduit monitor thread woke up."));
+                    assert (log.gotLock(Conduit.lockForNextConduitToCheck));
+                    shouldSleep = (Conduit.nextConduitToCheck == 0);
+                }
+                assert (log.releasedLock(Conduit.lockForNextConduitToCheck));
+                if (shouldSleep) {
+                    try {
+                        assert (log
+                            .finest("Conduit monitor thread sleeping."));
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        // TODO Handle interruptions of the monitor
+                        // thread.
+                        assert (log.throwing(e));
                     }
+                    assert (log.finest("Conduit monitor thread woke up."));
                 }
             }
         }
     }
 
+    /**
+     * The instantiation of the master monitor {@link Thread}.
+     */
     private static final ConduitMonitorThread cmt = new ConduitMonitorThread();
     static {
         cmt.start();
     }
 
+    /**
+     * The {@link Task}used to receive data.
+     * 
+     * @author Richard A. Mead <BR>
+     *         Information Montage
+     */
     public static class ReceiverTask
         extends AbstractTask
     {
 
         /**
-         * Logger for this class
+         * {@link Logger}for this class.
          */
         private static final AssertableLogger log = new AssertableLogger(
             ReceiverTask.class.getName());
 
-        /*
-         * (non-Javadoc)
+        /**
+         * Parameter validation routine for ReceiverTasks.
          * 
          * @see com.InfoMontage.task.AbstractTask#validateParameters(java.lang.Object[])
          */
@@ -202,50 +283,68 @@ public final class Conduit
                 c = (Conduit) pa[0];
             } catch (ClassCastException e) {
                 retVal = (IllegalArgumentException) new IllegalArgumentException(
-                    "Attempt" + " to set RecieverTask parameter to a "
+                    "Attempt" + " to set ReceiverTask parameter to a "
                         + pa[0].getClass() + " instead of a Conduit!")
                     .initCause(e);
+            } catch (NullPointerException e) {
+                retVal = (NullPointerException) new NullPointerException(
+                    "Attempt to set ReceiverTask parameter to null instead of"
+                        + " a Conduit!").initCause(e);
             }
-            return null;
+            if (null == c) {
+                retVal = new NullPointerException(
+                    "Attempt to set ReceiverTask parameter to null instead of"
+                        + " a Conduit!");
+            }
+            return retVal;
         }
 
+        /**
+         * The actual work of receiving data is done here.
+         * 
+         * @see com.InfoMontage.task.AbstractTask#doTask()
+         */
         protected void doTask() {
             Iterator i;
             Conduit c;
-            assert (log.info("Beginning task."));
+            assert (log.finer("Beginning receive task."));
+            assert (log.gettingLock(this.params[0]));
             synchronized (this.params[0]) {
-                assert (log.info("Attempting recieve."));
+                assert (log.gotLock(this.params[0]));
+                assert (log.finest("Attempting receive."));
                 c = (Conduit) (this.params[0]);
                 try {
-                    c.recieve();
+                    c.receive();
                 } catch (IOException e) {
                     // Lost contact?
                     if (!c.isOpen()) {
-                        //                        try {
-                        //                            c.close();
-                        //                        } catch (IOException e1) {
-                        //                            // TODO Auto-generated catch block
-                        //                            e1.printStackTrace();
-                        //                        } finally {
+                        // TBD: Possibly attempt to re-establish?
                         removeConduit(c);
-                        //                        }
                     } else {
                         // Still open!
-                        assert (log.throwing(
-                            "com.InfoMontage.net.ReceiverTask", "doTask()",
-                            e));
+                        assert (log.throwing(e));
                         throw (IllegalStateException) new IllegalStateException()
                             .initCause(e);
                     }
                 }
+                c.beingProcessed.setState(false);
             }
+            assert (log.releasedLock(this.params[0]));
+            assert (log.info("Receive task completed."));
         }
     }
 
+    /**
+     * The size of the buffer used for getting raw data from a {@link Socket}.
+     */
     private static int recvBufSize;
-
+    /**
+     * The size of the buffer used for sending raw data to a {@link Socket}.
+     */
     private static int sendBufSize;
-
+    /**
+     * Determine buffer sizes to use for raw data to/from {@link Socket}s.
+     */
     static {
         try {
             Socket s = new Socket();
@@ -258,97 +357,142 @@ public final class Conduit
             sendBufSize = (sss < dss) ? dss : sss;
         } catch (SocketException e) {
             // This should never happen...
+            // TBD: Handle failure cleanly.
         }
     }
+    /**
+     * The current size of a {@link Packet}'s payload.
+     */
+    private transient Short currPacketSize = new Short((short) 0);
 
+    /**
+     * A holding place for the {@link SelectableChannel}interface into this
+     * Conduit's {@link Socket}.
+     */
     private transient SelectableChannel channel = null;
-
+    /**
+     * A holding place for the {@link ByteChannel}interface into this
+     * Conduit's {@link Socket}.
+     */
     private transient ByteChannel byteChannel = null;
-
-    //private transient Selector selector=null;
-    //private transient SelectionKey selectionKey=null;
-    //private transient Socket sock=null;
-    //private transient java.net.DatagramSocket datagramSock=null;
+    /**
+     * The {@link Charset}being used with this Conduit.
+     */
     private transient Charset charSet = null;
-
-    //private transient InputStreamReader reader=null;
-    //private transient OutputStreamWriter writer=null;
-    //private transient java.io.InputStream in=null;
-    //private transient java.io.OutputStream out=null;
-
+    /**
+     * The current {@link PacketFactory}for this conduit.
+     */
     private transient PacketFactory packetFactory = null;
 
     private transient ByteBuffer recvBuf = null;
-
     private transient ByteBuffer sendBuf = null;
-
     private transient ByteBuffer recvReadBuf = null;
-
     private transient Vector readBufs = null;
-
     private transient byte[] bytesRecvd = null;
+    /**
+     * A queue of bundles awaiting completion or acknowledgement. As bundle
+     * {@link Packet}s are received, they are accumulated in an array which
+     * is stored in this queue. Once all of a particular bundle's
+     * {@link Packet}s have been received, the bundle is acknowledged. Once
+     * the acknowledgement has been received by the sender, the bundle becomes
+     * available for processing and is no longer available for a resend
+     * request.
+     */
+    private transient Map inBndlQueues = new Hashtable(7, 0.86f);
+    /**
+     * A queue of bundles awaiting acknowledgement. When a bundle is sent, it
+     * is stored in this queue until an acknowledgement of receipt is sent
+     * back. Once the acknowledgement has been received, the bundle is removed
+     * from this queue. If there is a timeout, or if the receiver requests it,
+     * the bundle can be resent.
+     */
+    private transient Map outBndlQueues = new Hashtable(7, 0.86f);
 
-    private transient Map inMsgQueues = new Hashtable(7, 0.86f);
-
-    private transient Map outMsgQueues = new Hashtable(7, 0.86f);
-
+    /**
+     * Number of bytes sent over this Conduit.
+     */
     private transient BigCounter numBytesSent = new BigCounter();
+    /**
+     * Number of bytes received over this Conduit.
+     */
     private transient BigCounter numBytesRcvd = new BigCounter();
+    /**
+     * Number of {@link Packet}s sent over this Conduit.
+     */
     private transient BigCounter numPktsSent = new BigCounter();
+    /**
+     * Number of {@link Packet}s received over this Conduit.
+     */
     private transient BigCounter numPktsRcvd = new BigCounter();
+    /**
+     * Number of bundles of {@link Packet}s sent over this Conduit.
+     */
     private transient BigCounter numBundlesSent = new BigCounter();
+    /**
+     * Number of bundles of {@link Packet}s received over this Conduit.
+     */
     private transient BigCounter numBundlesRcvd = new BigCounter();
 
-    private transient Short currPacketSize = new Short((short) 0);
-
     private final static long DEFAULT_EXPECTED_PACKET_LAG_MS = 500;
-
     transient long expectedPacketLagMs = DEFAULT_EXPECTED_PACKET_LAG_MS;
-
     private final static int NUM_PACKET_RECV_TIMES = 5; // Must be >1
-
     private transient long[] lastPacketRecvTimes;
-
     private transient long recvTimesSum;
-
     transient long expectedPacketLagMsDelta;
-
     private final static int LAG_TIMEOUT_MULTIPLE = 3;
-
     private final static int MAX_TIMEOUTS_TIL_EXCEPTION = 5;
-
+    private final static int MIN_LAG_BEFORE_EXCEPTION = 30 * 1000;
     private transient int numTimeouts = 0;
 
+    /**
+     * Current generation number for this Conduit's {@link Packet}s.
+     */
     private transient Long currGen = new Long(1);
+    /**
+     * Current bundle number for this Conduit's {@link Packet}s.
+     */
+    private transient Long currBndl = new Long(1);
 
-    private transient Long currMsg = new Long(1);
-
-    private static class MsgQKey {
+    /**
+     * An immutable key used to reference bundles of {@link Packet}s in a
+     * bundle ({@link Packet}bundle) queue.
+     * 
+     * @author Richard A. Mead <BR>
+     *         Information Montage
+     */
+    private static class BndlQKey {
 
         /**
-         * Logger for this class
+         * {@link Logger}for this class
          */
         private static final AssertableLogger log = new AssertableLogger(
-            MsgQKey.class.getName());
+            BndlQKey.class.getName());
 
+        /**
+         * The generation number of the {@link Packet}s.
+         */
         transient final long GENERATION_ID;
-
-        transient final long MSG_ID;
-
+        /**
+         * The bundle number of the {@link Packet}s.
+         */
+        transient final long BNDL_ID;
+        /**
+         * The cached hashcode value for this key.
+         */
         private transient final int HASH_CODE;
 
-        private MsgQKey(long g, long m) {
+        private BndlQKey(long g, long b) {
             this.GENERATION_ID = g;
-            this.MSG_ID = m;
-            this.HASH_CODE = new Long(this.GENERATION_ID ^ this.MSG_ID)
+            this.BNDL_ID = b;
+            this.HASH_CODE = new Long(this.GENERATION_ID ^ this.BNDL_ID)
                 .intValue();
             assert (Defaults.dbg().finest("Created a " + this));
         }
 
         public boolean equals(Object o) {
-            boolean retVal = ( (o instanceof Conduit.MsgQKey)
-                && ( ((Conduit.MsgQKey) o).HASH_CODE == this.HASH_CODE)
-                && ( ((Conduit.MsgQKey) o).GENERATION_ID == this.GENERATION_ID) && ( ((Conduit.MsgQKey) o).MSG_ID == this.MSG_ID));
+            boolean retVal = ( (o instanceof Conduit.BndlQKey)
+                && ( ((Conduit.BndlQKey) o).HASH_CODE == this.HASH_CODE)
+                && ( ((Conduit.BndlQKey) o).GENERATION_ID == this.GENERATION_ID) && ( ((Conduit.BndlQKey) o).BNDL_ID == this.BNDL_ID));
             assert (Defaults.dbg().finest("Compared equality of " + this
                 + " and " + o + ": " + (retVal ? "" : "not ") + "equal"));
             return retVal;
@@ -359,32 +503,43 @@ public final class Conduit
         }
 
         public String toString() {
-            StringBuffer retVal = new StringBuffer("MsgQKey[gen=").append(
-                this.GENERATION_ID).append(",msg=").append(this.MSG_ID)
+            StringBuffer retVal = new StringBuffer("BndlQKey[gen=").append(
+                this.GENERATION_ID).append(",bndl=").append(this.BNDL_ID)
                 .append(",hash=").append(this.HASH_CODE).append("]");
             return retVal.toString();
         }
     }
 
-    private static class MsgQValue {
+    /**
+     * The value class corresponding to the BndlQKey class for bundle queues.
+     * The value is an array of {@link Packet}s, as well as some bundle state
+     * information.
+     * 
+     * @author Richard A. Mead <BR>
+     *         Information Montage
+     */
+    private static class BndlQValue {
 
         /**
-         * Logger for this class
+         * {@link Logger}for this class
          */
         private static final AssertableLogger log = new AssertableLogger(
-            MsgQValue.class.getName());
+            BndlQValue.class.getName());
 
+        /**
+         * The array of {@link Packet}s containing the bundle.
+         */
         transient ArrayList packets;
-
-        transient long expectedCompletion;
-
+        /**
+         * The number of {@link Packet}s in the bundle that have not yet been
+         * received.
+         */
         transient long packetsLeftToRecv = 0;
-
+        transient long expectedCompletion;
         transient boolean recvComplete = false;
-
         transient boolean ackSent = false;
 
-        MsgQValue(ArrayList p) {
+        BndlQValue(ArrayList p) {
             this.packets = p;
             setExpectedCompletion();
         }
@@ -502,33 +657,46 @@ public final class Conduit
     }
 
     private static void addConduit(Conduit c) {
-        synchronized (conduits) {
+        assert (log.gettingLock(Conduit.conduits));
+        synchronized (Conduit.conduits) {
+            assert (log.gotLock(Conduit.conduits));
             // TBD: update nextConduitToCheck?
+            Conduit.conduits.add(c);
             assert (log.info("Added a Conduit to list: had "
-                + conduits.size()));
-            conduits.add(c);
+                + (Conduit.conduits.size()-1)));
         }
+        assert (log.releasedLock(Conduit.conduits));
     }
 
     static void removeConduit(Conduit c) {
-        synchronized (conduits) {
-            if (!conduits.contains(c)) {
+        assert (log.gettingLock(Conduit.conduits));
+        synchronized (Conduit.conduits) {
+            assert (log.gotLock(Conduit.conduits));
+            if (!Conduit.conduits.contains(c)) {
                 assert (log
-                    .info("Requesting removal of Conduit from list which is not IN list!"));
+                    .finer("Requesting removal of Conduit from list which is not IN list!"));
             } else {
-                assert (log.info("Removing Conduit from list: had "
-                    + conduits.size()));
-                synchronized (lockForNextConduitToCheck) {
-                    if (nextConduitToCheck > conduits.indexOf(c)) {
-                        nextConduitToCheck-- ;
+                assert (log.finest("Removing Conduit from list: had "
+                    + Conduit.conduits.size()));
+                assert (log.gettingLock(Conduit.lockForNextConduitToCheck));
+                synchronized (Conduit.lockForNextConduitToCheck) {
+                    assert (log.gotLock(Conduit.lockForNextConduitToCheck));
+                    if (Conduit.nextConduitToCheck > Conduit.conduits
+                        .indexOf(c))
+                    {
+                        Conduit.nextConduitToCheck-- ;
                     }
-                    conduits.remove(c);
-                    if (nextConduitToCheck >= conduits.size()) {
-                        nextConduitToCheck = 0;
+                    Conduit.conduits.remove(c);
+                    if (Conduit.nextConduitToCheck >= Conduit.conduits
+                        .size())
+                    {
+                        Conduit.nextConduitToCheck = 0;
                     }
                 }
+                assert (log.releasedLock(Conduit.lockForNextConduitToCheck));
             }
         }
+        assert (log.releasedLock(Conduit.conduits));
     }
 
     public PacketFactory getPacketFactory() {
@@ -552,7 +720,7 @@ public final class Conduit
         }
     }
 
-    synchronized protected void recieve() throws IOException {
+    synchronized protected void receive() throws IOException {
         int p;
         int l;
         if (recvBuf.hasRemaining()) {
@@ -599,28 +767,35 @@ public final class Conduit
             recvReadBuf.put(recvBuf);
             numBytesRcvd.add(recvReadBuf.position() - l);
             assert (log.info("Added " + (recvReadBuf.position() - l)
-                + " bytes to ReadBuf!"));
+                + " bytes to RecvReadBuf!"));
             recvReadBuf.limit(recvReadBuf.position()).position(p);
+            // Check if we have at least one full Packet in the recvReadBuf
+            internalRead();
         } else {
-            // Nothing in recieve buffer, and nothing came in on the wire
+            // Nothing in receive buffer, and nothing came in on the wire
             // Are we waiting for anything? (Ack or Ack of Ack or rest of
-            // message)
-            if (!this.outMsgQueues.isEmpty() || !this.inMsgQueues.isEmpty())
+            // bundle)
+            if (!this.outBndlQueues.isEmpty()
+                || !this.inBndlQueues.isEmpty())
             {
                 // Have we timed out?
-                if ( (System.currentTimeMillis() - this.lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 1]) > (LAG_TIMEOUT_MULTIPLE * expectedPacketLagMs))
-                {
-                    if ( ++this.numTimeouts >= Conduit.MAX_TIMEOUTS_TIL_EXCEPTION) { throw new RuntimeException(
-                        "Conduit timed out!"); }
+                long td = (System.currentTimeMillis() - this.lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 1]);
+                if (td > (LAG_TIMEOUT_MULTIPLE * expectedPacketLagMs)) {
+                    if ( ++ (this.numTimeouts) >= Conduit.MAX_TIMEOUTS_TIL_EXCEPTION)
+                    {
+                        if (td > Conduit.MIN_LAG_BEFORE_EXCEPTION) { throw new RuntimeException(
+                            "Conduit timed out!"); }
+                    }
                 }
             }
         }
     }
 
-    synchronized public boolean hasInput()
-        throws IOException, java.nio.channels.CancelledKeyException
-    {
-        //recieve();
+    synchronized public boolean hasInput() throws IOException {
+        return (null != this.readBufs && !this.readBufs.isEmpty());
+    }
+
+    synchronized public boolean hasRawInput() throws IOException {
         return (null != this.recvReadBuf && this.recvReadBuf.hasRemaining());
     }
 
@@ -632,7 +807,7 @@ public final class Conduit
         throws IOException
     {
         int retValue;
-        recieve();
+        receive();
         CharBuffer cb = recvReadBuf.asCharBuffer();
         retValue = cb.remaining();
         retValue = (len < retValue) ? len : retValue;
@@ -641,119 +816,183 @@ public final class Conduit
         return retValue;
     }
 
-    synchronized public int read(ByteBuffer buf) throws IOException {
+    /**
+     * Places the next available bundle contents into the supplied buffer.
+     * 
+     * @param buf The {@link ByteBuffer}to place the data in.
+     * @return Number of bytes read into buffer.
+     */
+    synchronized public int read(ByteBuffer buf) {
         int retValue = 0;
+        if (!readBufs.isEmpty()) {
+            ByteBuffer tmpBuf = this.read();
+            retValue = tmpBuf.flip().remaining();
+            buf.put(tmpBuf);
+        }
+        return retValue;
+    }
+
+    /**
+     * Returns the next available bundle contents buffer.
+     * 
+     * @return The buffer with the next available bundle's content, or null if
+     *         no bundles are available.
+     */
+    synchronized public ByteBuffer read() {
+        ByteBuffer retValue = null;
+        if (!readBufs.isEmpty()) {
+            retValue = (ByteBuffer) readBufs.remove(0);
+        }
+        return retValue;
+    }
+
+    /**
+     * Attempts to parse out {@link Packet}s from the recvReadBuf and place
+     * them into the input bundle queue. If a bundle is completed, places it
+     * into the readBufs array.
+     * 
+     * @throws IOException
+     */
+    synchronized public void internalRead() throws IOException {
+        int bndlLen = 0;
         int i;
         long newExpectedPacketLagMs;
-        if (!readBufs.isEmpty()) {
-            ByteBuffer tmpBuf = (ByteBuffer) readBufs.remove(0);
-            retValue = tmpBuf.remaining();
-            buf.put(tmpBuf);
-        } else {
-            while (this.hasInput() && retValue == 0) {
-                Packet p = null;
-                try {
-                    p = this.recievePacket();
-                } catch (IllegalArgumentException e) {
-                    // bad header!
-                    // TBD: handle bad datastream header
-                    assert (log.throwing("com.InfoMontage.net.Conduit",
-                        "read(ByteBuffer buf = " + buf + ")", e));
-                } catch (BufferUnderflowException e) {
-                    // not enough data! Have we timed out?
-                    if ( (System.currentTimeMillis() - this.lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 1]) > (LAG_TIMEOUT_MULTIPLE * expectedPacketLagMs))
-                    {
-                        // until we do resend requests, handle as timeout only
-                        if ( ++this.numTimeouts >= Conduit.MAX_TIMEOUTS_TIL_EXCEPTION) { throw new RuntimeException(
-                            "Conduit timed out!"); }
-                        // We might have some metadata that we could use
-                        // to request a resend?
-                        // TBD: request resend if enough metadata present
-                        // not enough metadata, and we've timed out...
-                        // TBD: handle timeout with partial packet
-                        assert (log
-                            .info("Timeout with partial packet!n   Partial data="
-                                + com.InfoMontage.util.Buffer
-                                    .toString(recvReadBuf)));
-                    }
-                } catch (IOException e) {
-                    // TODO Auto-generated catch block
-                    assert (log.throwing("com.InfoMontage.net.Conduit",
-                        "read(ByteBuffer buf = " + buf + ")", e));
+        boolean gotOne = true;
+        while (this.hasRawInput() && gotOne) {
+            gotOne = false;
+            Packet p = null;
+            try {
+                p = this.receivePacket();
+            } catch (IllegalArgumentException e) {
+                // bad header!
+                // TBD: handle bad datastream header
+                assert (log.throwing("com.InfoMontage.net.Conduit",
+                    "internalRead()", e));
+            } catch (BufferUnderflowException e) {
+                // not enough data! Have we timed out?
+                if ( (System.currentTimeMillis() - this.lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 1]) > (LAG_TIMEOUT_MULTIPLE * expectedPacketLagMs))
+                {
+                    // until we do resend requests, handle as timeout only
+                    if ( ++this.numTimeouts >= Conduit.MAX_TIMEOUTS_TIL_EXCEPTION) { throw new RuntimeException(
+                        "Conduit timed out!"); }
+                    // We might have some metadata that we could use
+                    // to request a resend?
+                    // TBD: request resend if enough metadata present
+                    // not enough metadata, and we've timed out...
+                    // TBD: handle timeout with partial packet
+                    assert (log
+                        .info("Timeout with partial packet!n   Partial data="
+                            + com.InfoMontage.util.Buffer
+                                .toString(recvReadBuf)));
                 }
-                if (null == p) {
-                    // should only get here if buffer was null -
-                    // or the resend request also failed...
-                    // TBD: handle bad datastream
-                    throw new RuntimeException("Connection could not"
-                        + " recieve a valid Packet!\nbuf={len "
-                        + recvReadBuf.remaining() + "}"
-                        + Buffer.toString(recvReadBuf));
-                } else {
-                    assert (log.info("***Received packet: " + p.toString()));
-                    this.numTimeouts = 0;
-                    // update expected packet lag time
-                    this.recvTimesSum -= lastPacketRecvTimes[1]
-                        - lastPacketRecvTimes[0];
-                    for (i = 1; i < NUM_PACKET_RECV_TIMES; i++ ) {
-                        lastPacketRecvTimes[i - 1] = lastPacketRecvTimes[i];
-                    }
-                    lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 1] = System
-                        .currentTimeMillis();
-                    this.recvTimesSum += lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 1]
-                        - lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 2];
-                    newExpectedPacketLagMs = this.recvTimesSum
-                        / NUM_PACKET_RECV_TIMES;
-                    expectedPacketLagMsDelta = this.expectedPacketLagMs
-                        - newExpectedPacketLagMs;
-                    this.expectedPacketLagMs = newExpectedPacketLagMs;
-                    // handle Ack and Nak packets
-                    if (p.pktID == 0 && p.genID != 0 && p.msgID != 0
-                        && p.len < (short) 1)
-                    {
-                        // handle Ack packets
-                        if (p.len == (short) 0) {
-                            // Is it an Ack for something sent, or an Ack of
-                            // an
-                            // Ack?
-                            MsgQKey mqk = new MsgQKey(p.genID, p.msgID);
-                            if (this.outMsgQueues.containsKey(mqk)) {
-                                // Ack the Ack and remove from queue
-                                // TBD: validate removable!
-                                assert (log
-                                    .info("Packet is Ack of sent message "
-                                        + mqk.toString()
-                                        + ", sending Ack of Ack."));
-                                sendAckPacket(p.genID, p.msgID);
-                                this.outMsgQueues.remove(mqk);
-                                assert (log.info(outMsgQueues.size()
-                                    + " entries left in sent queue."));
-                            } else if (this.inMsgQueues.containsKey(mqk)) {
-                                // Remove from queue!
-                                // TBD: validate removable!
-                                assert (log
-                                    .info("Packet is Ack of Ack of recieved message "
-                                        + mqk.toString()));
-                                this.inMsgQueues.remove(mqk);
-                                assert (log.info(inMsgQueues.size()
-                                    + " entries left in recieved queue."));
-                            } else {
-                                // TBD: what to do if we got an Ack for
-                                // something
-                                // we
-                                // did't send
-                            }
-                        } else { // handle Nak packets
-                            // TBD: Nak means...
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                assert (log.throwing("com.InfoMontage.net.Conduit",
+                    "internalRead()", e));
+            }
+            if (null == p) {
+                // If buffer was null or not enough data yet for a Packet
+                // TBD: handle bad datastream
+                /*
+                 * throw new RuntimeException("Connection could not" + "
+                 * receive a valid Packet!\nbuf={len " +
+                 * recvReadBuf.remaining() + "}" +
+                 * Buffer.toString(recvReadBuf));
+                 */
+            } else {
+                gotOne = true;
+                assert (log.info("***Received packet: " + p.toString()));
+                this.numTimeouts = 0;
+                // update expected packet lag time
+                this.recvTimesSum -= lastPacketRecvTimes[1]
+                    - lastPacketRecvTimes[0];
+                for (i = 1; i < NUM_PACKET_RECV_TIMES; i++ ) {
+                    lastPacketRecvTimes[i - 1] = lastPacketRecvTimes[i];
+                }
+                lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 1] = System
+                    .currentTimeMillis();
+                this.recvTimesSum += lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 1]
+                    - lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 2];
+                newExpectedPacketLagMs = this.recvTimesSum
+                    / NUM_PACKET_RECV_TIMES;
+                expectedPacketLagMsDelta = this.expectedPacketLagMs
+                    - newExpectedPacketLagMs;
+                this.expectedPacketLagMs = newExpectedPacketLagMs;
+                // handle Ack and Nak packets
+                if (p.pktID == 0 && p.genID != 0 && p.bndlID != 0
+                    && p.len < (short) 1)
+                {
+                    // handle Ack packets
+                    if (p.len == (short) 0) {
+                        // Is it an Ack for something sent, or an Ack of
+                        // an
+                        // Ack?
+                        BndlQKey mqk = new BndlQKey(p.genID, p.bndlID);
+                        if (this.outBndlQueues.containsKey(mqk)) {
+                            // Ack the Ack and remove from queue
+                            // TBD: validate removable!
+                            assert (log
+                                .info("Packet is Ack of sent bundle "
+                                    + mqk.toString()
+                                    + ", sending Ack of Ack."));
+                            sendAckPacket(p.genID, p.bndlID);
+                            this.outBndlQueues.remove(mqk);
+                            assert (log.info(outBndlQueues.size()
+                                + " entries left in sent queue."));
+                        } else if (this.inBndlQueues.containsKey(mqk)) {
+                            // Remove from queue!
+                            // TBD: validate removable!
+                            assert (log
+                                .info("Packet is Ack of Ack of received bundle "
+                                    + mqk.toString()));
+                            this.inBndlQueues.remove(mqk);
+                            assert (log.info(inBndlQueues.size()
+                                + " entries left in received queue."));
+                        } else {
+                            // TBD: what to do if we got an Ack for
+                            // something
+                            // we
+                            // did't send
                         }
-                    } else {
-                        retValue = this.queuePacket(p, buf);
-                        assert (log.info(" messageBufLen=" + retValue));
+                    } else { // handle Nak packets
+                        // TBD: Nak means...
                     }
+                } else {
+                    //ByteBuffer tbb = ByteBuffer.allocate(recvReadBuf
+                    //    .capacity());
+                    BndlQKey bqk = new BndlQKey(p.genID, p.bndlID);
+                    int bl = 0;
+                    if (inBndlQueues.containsKey(bqk)) {
+                        List pa = ((BndlQValue) inBndlQueues.get(bqk)).packets;
+                        Packet hp = (Packet) pa.get(0);
+                        if (null != hp) {
+                            Packet tp = null;
+                            for (int j = 1; j <= hp.len; j++ ) {
+                                tp = (Packet) pa.get(j);
+                                if (null != tp) {
+                                    bl += tp.len;
+                                } else {
+                                    if (j == p.pktID) {
+                                        bl += p.len;
+                                    } else {
+                                        bl = 0;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ByteBuffer tbb = (bl == 0) ? null : ByteBuffer
+                        .allocate(bl);
+                    // see if we've completed a bundle yet
+                    bndlLen = this.queuePacket(p, tbb);
+                    if (bndlLen > 0) {
+                        readBufs.add(tbb);
+                    }
+                    assert (log.info(" bundleBufLen=" + bndlLen));
                 }
             }
         }
-        return retValue;
     }
 
     private int queuePacket(Packet pkt, ByteBuffer buf)
@@ -763,12 +1002,12 @@ public final class Conduit
         boolean foundInQ = false;
         boolean complete = false;
         // TBD: validate genID and renegotiate protocols if necessary
-        Conduit.MsgQKey mqk = new Conduit.MsgQKey(pkt.genID, pkt.msgID);
+        Conduit.BndlQKey mqk = new Conduit.BndlQKey(pkt.genID, pkt.bndlID);
         ArrayList pal;
-        MsgQValue mqv;
-        if (this.inMsgQueues.containsKey(mqk)) {
+        BndlQValue mqv;
+        if (this.inBndlQueues.containsKey(mqk)) {
             foundInQ = true;
-            mqv = (MsgQValue) this.inMsgQueues.get(mqk);
+            mqv = (BndlQValue) this.inBndlQueues.get(mqk);
             pal = mqv.packets;
         } else {
             int cap = (pkt.pktID == 0) ? pkt.len + 1 : ( (pkt.pktID < 6)
@@ -777,7 +1016,7 @@ public final class Conduit
             for (int i = 0; i < cap; ++i) {
                 pal.add(null);
             }
-            mqv = new MsgQValue(pal);
+            mqv = new BndlQValue(pal);
             mqv.setExpectedCompletion(expectedPacketLagMs);
         }
         if (pal.size() <= pkt.pktID) {
@@ -789,13 +1028,13 @@ public final class Conduit
             }
         }
         if (pal.get(pkt.pktID) != null) {
-            // already recieved this packet ID!
+            // already received this packet ID!
             // TBD: verify same packet including data
             // TBD: increment duplicate packet count
         } else {
             pal.set(pkt.pktID, pkt);
             if (!foundInQ) {
-                this.inMsgQueues.put(mqk, mqv);
+                this.inBndlQueues.put(mqk, mqv);
             }
         }
         Packet h = (Packet) pal.get(0);
@@ -824,15 +1063,15 @@ public final class Conduit
                     } catch (IllegalArgumentException e) {
                         // TBD: handle invalid packet list - request resend
                         //m=null;
-                        //inMsgQueues.remove(mqk);
+                        //inBndlQueues.remove(mqk);
                         //sendNakPacket(h);
                     } finally {
                         if (m != null) {
                             try {
                                 assert (log
-                                    .info("Sending Ack of recieved message "
+                                    .info("Sending Ack of received bundle "
                                         + mqk.toString()));
-                                sendAckPacket(h.genID, h.msgID);
+                                sendAckPacket(h.genID, h.bndlID);
                                 mqv.ackSent = true;
                                 mqv.setExpectedCompletion(
                                     expectedPacketLagMs, 1);
@@ -846,17 +1085,21 @@ public final class Conduit
                                             + ")", e));
                             }
                             retValue = m.remaining();
-                            numBundlesRcvd.add(1);
-                            buf.put(m);
-                            // will remove from queue when recieve Ack of Ack
+                            if (retValue > buf.remaining()) {
+                                throw new BufferOverflowException();
+                            } else {
+                                numBundlesRcvd.add(1);
+                                buf.put(m);
+                            }
+                            // will remove from queue when receive Ack of Ack
                             // or timeout while waiting for Ack of Ack
-                            //this.inMsgQueues.remove(mqk);
+                            //this.inBndlQueues.remove(mqk);
                         }
                     }
                 }
             }
         }
-        // Check for message recieve timeout
+        // Check for bundle receive timeout
         if (!complete && foundInQ) {
             if (System.currentTimeMillis() > (mqv.expectedCompletion + (Conduit.LAG_TIMEOUT_MULTIPLE
                 * Conduit.MAX_TIMEOUTS_TIL_EXCEPTION * this.expectedPacketLagMs)))
@@ -868,7 +1111,7 @@ public final class Conduit
         return retValue;
     }
 
-    private Packet recievePacket()
+    private Packet receivePacket()
         throws IllegalArgumentException, BufferUnderflowException,
         IOException
     {
@@ -885,7 +1128,7 @@ public final class Conduit
         //        e.printStackTrace();
         //    }
         //}
-        //recieve();
+        //receive();
         numRead = recvReadBuf.position();
         rp = packetFactory.valueOf(this.recvReadBuf);
         numRead = recvReadBuf.position() - numRead;
@@ -919,9 +1162,10 @@ public final class Conduit
     }
 
     /**
-     * Flushes the output buffered with the write(char[],int,int) method. This
-     * method does nothing (other than synchronize), as the output will always
-     * have been flushed as part of the call to write(char[],int,int).
+     * Flushes the output buffered with the
+     * {@link Conduit#write(char[],int,int)}method. This method does nothing
+     * (other than synchronize), as the output will always have been flushed
+     * as part of the call to {@link Conduit#write(char[],int,int)}.
      * 
      * TBD: implement flush when Conduit buffers writes
      * 
@@ -933,35 +1177,42 @@ public final class Conduit
         throws IOException, NullPointerException, IllegalArgumentException
     {
         // TBD: add code for buffer pool writeBufs and writer monitor thread
-        Conduit.MsgQKey mqk;
+        Conduit.BndlQKey mqk;
         Packet[] pa;
+        assert (log.gettingLock(this.currGen));
         synchronized (this.currGen) {
-            synchronized (this.currMsg) {
-                mqk = new Conduit.MsgQKey(this.currGen.intValue(),
-                    this.currMsg.intValue());
-                this.currMsg = new Long(this.currMsg.longValue() + 1);
-                if (this.outMsgQueues.containsKey(mqk)) { throw new IOException(
-                    "Duplicate message key generation error in"
+            assert (log.gotLock(this.currGen));
+            assert (log.gettingLock(this.currBndl));
+            synchronized (this.currBndl) {
+                assert (log.gotLock(this.currBndl));
+                mqk = new Conduit.BndlQKey(this.currGen.intValue(),
+                    this.currBndl.intValue());
+                this.currBndl = new Long(this.currBndl.longValue() + 1);
+                if (this.outBndlQueues.containsKey(mqk)) { throw new IOException(
+                    "Duplicate bundle key generation error in"
                         + "Conduit!\ncurrGen=" + this.currGen
-                        + ", currMsg=" + (this.currMsg.longValue() - 1)); }
+                        + ", currBndl=" + (this.currBndl.longValue() - 1)); }
             }
+            assert (log.releasedLock(this.currBndl));
         }
+        assert (log.releasedLock(this.currGen));
+        assert (log.gettingLock(this.currPacketSize));
         synchronized (this.currPacketSize) {
+            assert (log.gotLock(this.currPacketSize));
             pa = this.packetFactory.decompose(buf, this.currPacketSize
-                .shortValue(), mqk.GENERATION_ID, mqk.MSG_ID);
-            outMsgQueues.put(mqk, new MsgQValue(new ArrayList(
+                .shortValue(), mqk.GENERATION_ID, mqk.BNDL_ID);
+            outBndlQueues.put(mqk, new BndlQValue(new ArrayList(
                 java.util.Arrays.asList(pa))));
             ByteBuffer bb = null;
             for (int i = 0; i < pa.length; ++i) {
-                /*
-                 * System.err.println("Sending packet:"+pa[i].toString());
-                 * bb=pa[i].toByteBuffer(); int nw=this.byteChannel.write(bb);
-                 * System.err.println("Sent "+nw+" bytes.");
-                 */
+                assert (log.finest("Sending packet:" + pa[i].toString()));
                 sendPacket(pa[i]);
+                assert (log
+                    .finest("Sent " + pa[i].byteLength() + " bytes."));
             }
             numBundlesSent.add(1);
         }
+        assert (log.releasedLock(this.currPacketSize));
     }
 
     void sendAckPacket(long g, long m) throws IOException {
