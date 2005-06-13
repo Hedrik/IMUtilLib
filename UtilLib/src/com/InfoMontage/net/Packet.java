@@ -38,21 +38,23 @@ import com.InfoMontage.version.GenericCodeVersion;
  * @author Richard A. Mead <BR>
  *         Information Montage
  */
-class Packet implements Comparable {
+class Packet
+    implements Comparable
+{
 
     public static CodeVersion implCodeVersion = new GenericCodeVersion(
-            "0.8a");
+        "0.8a");
 
     static final int PACKET_MAGIC_ID = ByteBuffer.wrap("PaKt".getBytes())
-            .getInt();
+        .getInt();
 
     public static final short DEFAULT_PACKET_PAYLOAD_LENGTH = 4096;
 
     long genID = 0; // determined at connection protocol negotiation
-    long msgID = 0;
+    long bndlID = 0;
     int pktID = 0;
     short len = Short.MIN_VALUE; // to differentiate an uninitialized Packet
-                                 // from a heartbeat
+    // from a heartbeat
     byte[] payload = null;
 
     /**
@@ -62,7 +64,7 @@ class Packet implements Comparable {
      * this is the object that is returned by the getHeartbeatPacket() method.
      */
     static final Packet HEARTBEAT_PACKET = new Packet(0, 0, 0, (short) 0,
-            null);
+        null);
 
     static Packet getHeartbeatPacket() {
         return HEARTBEAT_PACKET;
@@ -75,17 +77,17 @@ class Packet implements Comparable {
      * The provided data will be validated.
      */
     Packet(long gid, long mid, int pid, short l, byte[] p)
-            throws IllegalArgumentException
+        throws IllegalArgumentException
     {
         genID = gid;
-        msgID = mid;
+        bndlID = mid;
         pktID = pid;
         len = l;
         payload = p;
         if (!Packet.isValid(this))
             throw new IllegalArgumentException(
-                    "Attempt to create a Packet with"
-                            + " invalid or inconsistent parameters!");
+                "Attempt to create a Packet with"
+                    + " invalid or inconsistent parameters!");
     }
 
     /*
@@ -100,8 +102,8 @@ class Packet implements Comparable {
      */
     public final String toString(StringBuffer xtra) {
         StringBuffer s = new StringBuffer("Packet[gen=");
-        s.append(genID).append(",msg=");
-        s.append(msgID).append(",pkt=");
+        s.append(genID).append(",bndl=");
+        s.append(bndlID).append(",pkt=");
         s.append(pktID);
         if (pktID == 0)
             s.append("{header}");
@@ -128,7 +130,7 @@ class Packet implements Comparable {
     }
 
     /*
-     * Since the combination of msgID and pktID should uniquely identify a
+     * Since the combination of bndlID and pktID should uniquely identify a
      * Packet (the genID is intended to validate the two ends of the
      * Connection are in sync with each other with regard to the connection
      * protocol version to be used, and thus specifies a grouping for Packets
@@ -139,16 +141,16 @@ class Packet implements Comparable {
      */
     public final int hashCode() {
         // 17*37=629
-        return (629 + (int) (msgID ^ (msgID >>> 32))) * 37 + pktID;
+        return (629 + (int) (bndlID ^ (bndlID >>> 32))) * 37 + pktID;
     }
 
     public boolean equals(Packet p) throws IllegalStateException {
-        boolean isEqual = ( (p.msgID == this.msgID) && (p.pktID == this.pktID));
+        boolean isEqual = ( (p.bndlID == this.bndlID) && (p.pktID == this.pktID));
         if (isEqual
-                && ( (p.len != this.len) || !java.util.Arrays.equals(
-                        p.payload, this.payload)))
-            throw new IllegalStateException("Packets with equal msgID and"
-                    + " pktID found with differing content!");
+            && ( (p.len != this.len) || !java.util.Arrays.equals(p.payload,
+                this.payload)))
+            throw new IllegalStateException("Packets with equal bndlID and"
+                + " pktID found with differing content!");
         return isEqual;
     }
 
@@ -157,12 +159,13 @@ class Packet implements Comparable {
     }
 
     public int compareTo(Packet o) throws NullPointerException {
-        return (o == this) ? 0 : (msgID < o.msgID) ? -1 : (msgID > o.msgID)
-                ? 1 : (pktID < o.pktID) ? -1 : (pktID > o.pktID) ? 1 : 0;
+        return (o == this) ? 0 : (bndlID < o.bndlID) ? -1
+            : (bndlID > o.bndlID) ? 1 : (pktID < o.pktID) ? -1
+                : (pktID > o.pktID) ? 1 : 0;
     }
 
     public int compareTo(Object o)
-            throws NullPointerException, ClassCastException
+        throws NullPointerException, ClassCastException
     {
         return (o == this) ? 0 : compareTo((Packet) o);
     }
@@ -188,9 +191,9 @@ class Packet implements Comparable {
                 if (p.payload == null)
                     valid = true;
             } else if ( (p.payload != null) // null only valid for header
-                                            // packets
-                    && (p.pktID > 0) // must be sequential to header packet
-                    && (p.len == p.payload.length))
+                // packets
+                && (p.pktID > 0) // must be sequential to header packet
+                && (p.len == p.payload.length))
                 valid = true;
         return valid;
     }
@@ -201,60 +204,58 @@ class Packet implements Comparable {
 
     /**
      * Converts a {@link ByteBuffer}into a series of {@link Packet}s. Each
-     * packet will have the given genID, msgID, and a unique, sequential
+     * packet will have the given genID, bndlID, and a unique, sequential
      * pktID. The first Packet in the returned array will have the special
-     * pktID of 0 (zero) indicating the header packet for the message
-     * contained in the packet series. This packet does not contain any of the
-     * actual data from the {@link ByteBuffer}, rather it contains metadata
-     * for the sequence of packets: the number of packets is stored in the
-     * length field. The payload for the header {@link Packet}will be null.
+     * pktID of 0 (zero) indicating the header packet for the bundle contained
+     * in the packet series. This packet does not contain any of the actual
+     * data from the {@link ByteBuffer}, rather it contains metadata for the
+     * sequence of packets: the number of packets is stored in the length
+     * field. The payload for the header {@link Packet}will be null.
      * <P>
      * Each generated {@link Packet}(other than the header {@link Packet})
      * will have a payload with a length specified by the psz parameter,
      * excepting possibly the last {@link Packet}which may have less.
      * 
-     * @param ibb The {@link ByteBuffer}containing the message to be
+     * @param ibb The {@link ByteBuffer}containing the bundle to be
      *            decomposed into {@link Packet}s.
      * @param psz The size of the payload for each {@link Packet}.
      * @param gen The generation ID to use for the generated {@link Packet}
      *            series.
-     * @param msg The message ID to use for the generated {@link Packet}
+     * @param bndl The bundle ID to use for the generated {@link Packet}
      *            series.
-     * @return An array of {@link Packet}s containing the message and
-     *         starting with a header {@link Packet}.
+     * @return An array of {@link Packet}s containing the bundle and starting
+     *         with a header {@link Packet}.
      * @throws NullPointerException if <CODE>ibb</CODE> is <CODE>null
      *             </CODE>.
      * @throws IllegalArgumentException if <CODE>ibb</CODE> is of zero
      *             length, or if <CODE>psz</CODE> is negative or zero.
      */
-    static Packet[] decompose(ByteBuffer ibb, short psz, long gen, long msg)
-            throws IllegalArgumentException
+    static Packet[] decompose(ByteBuffer ibb, short psz, long gen, long bndl)
+        throws IllegalArgumentException
     {
         if (ibb == null)
             throw new NullPointerException(
-                    "Attempt to compose Packets from"
-                            + " a null ByteBuffer!");
+                "Attempt to compose Packets from" + " a null ByteBuffer!");
         if (ibb.remaining() == 0)
             throw new IllegalArgumentException(
-                    "Attempt to compose Packets from"
-                            + " an empty ByteBuffer!");
+                "Attempt to compose Packets from" + " an empty ByteBuffer!");
         if (psz < 1)
             throw new IllegalArgumentException(
-                    "Attempt to compose Packets from"
-                            + " a ByteBuffer using a non-positive payload size!");
+                "Attempt to compose Packets from"
+                    + " a ByteBuffer using a non-positive payload size!");
         int np = ibb.remaining() / psz;
         int rb = ibb.remaining() - (np * psz);
         np += (rb > 0) ? 1 : 0;
         Packet[] rpa = new Packet[np + 1];
-        rpa[0] = newPacket(gen, msg, 0, (short) (np), null);
+        rpa[0] = newPacket(gen, bndl, 0, (short) (np), null);
         for (int i = 1; i < np; i++ ) {
             byte[] p = new byte[psz];
             ibb.get(p);
-            rpa[i] = newPacket(gen, msg, i, psz, p);
+            rpa[i] = newPacket(gen, bndl, i, psz, p);
         }
         byte[] p = new byte[rb];
         ibb.get(p);
-        rpa[np] = newPacket(gen, msg, np, (short) rb, p);
+        rpa[np] = newPacket(gen, bndl, np, (short) rb, p);
         return rpa;
     }
 
@@ -267,10 +268,10 @@ class Packet implements Comparable {
 
     /**
      * Converts the provided array of {@link Packet}s to a {@link ByteBuffer}
-     * containing the message carried by the series of packets. The array may
-     * consist of only a header packet - such a message might be used as a
-     * 'ping' or 'heartbeat' containing no data other than a message ID. Such
-     * a packet is provided as the constant Packet.HEARTBEAT_PACKET for
+     * containing the bundle carried by the series of packets. The array may
+     * consist of only a header packet - such a bundle might be used as a
+     * 'ping' or 'heartbeat' containing no data other than a bundle ID. Such a
+     * packet is provided as the constant Packet.HEARTBEAT_PACKET for
      * convenience. The {@link Packet}array will be manipulated and validated
      * as follows:
      * <P>
@@ -290,7 +291,7 @@ class Packet implements Comparable {
      * </CODE> must equal the value of the <CODE>cksum</CODE> field of the
      * header packet.
      * <P>
-     * 6) Every packet must have the same value in the <CODE>msgID</CODE>
+     * 6) Every packet must have the same value in the <CODE>bndlID</CODE>
      * field.
      * <P>
      * 7) Each packet must have a unique, sequentially increasing value in the
@@ -306,7 +307,7 @@ class Packet implements Comparable {
      * value of that packet's <CODE>cksum</CODE> field.
      * 
      * @param pkts The array of <CODE>Packet</CODE> s to be processed.
-     * @return A {@link ByteBuffer}containing the message carried by the
+     * @return A {@link ByteBuffer}containing the bundle carried by the
      *         series of packets. The length of the returned
      *         {@link ByteBuffer}will be zero if the provided array of
      *         {@link Packet}s contains only the "Heartbeat" header packet.
@@ -316,42 +317,40 @@ class Packet implements Comparable {
      */
     static ByteBuffer recombine(Packet[] pkts)
     // TBD: change to accept a List of Packets for performance
-            // {so that List.toArray is not needed
-            throws IllegalArgumentException, NullPointerException
+        // {so that List.toArray is not needed
+        throws IllegalArgumentException, NullPointerException
     {
         int al = pkts.length;
         if (al == 0)
             throw new IllegalArgumentException(
-                    "Attempt to combine Packets array"
-                            + " with no elements!");
+                "Attempt to combine Packets array" + " with no elements!");
         ByteBuffer rb = null;
         int l = 0;
         if (al > 1)
             java.util.Arrays.sort(pkts);
         if (pkts[0].pktID != 0)
             throw new IllegalArgumentException(
-                    "Attempt to combine Packets with"
-                            + " no header packet!");
+                "Attempt to combine Packets with" + " no header packet!");
         if (pkts[0].payload != null)
             throw new IllegalArgumentException(
-                    "Attempt to combine Packets with"
-                            + " a header packet containing a non-null payload!");
+                "Attempt to combine Packets with"
+                    + " a header packet containing a non-null payload!");
         if (pkts[0].len != al - 1)
             throw new IllegalArgumentException(
-                    "Attempt to combine Packets with"
-                            + " a header packet specifying a different number of packets than"
-                            + " the number available!");
+                "Attempt to combine Packets with"
+                    + " a header packet specifying a different number of packets than"
+                    + " the number available!");
         if (al > 1) {
-            long m = pkts[0].msgID;
+            long m = pkts[0].bndlID;
             for (int i = 1; i < al; i++ ) {
-                if (pkts[i].msgID != m)
+                if (pkts[i].bndlID != m)
                     throw new IllegalArgumentException(
-                            "Attempt to combine Packets with"
-                                    + " differing message IDs!");
+                        "Attempt to combine Packets with"
+                            + " differing bundle IDs!");
                 if (pkts[i].pktID != i)
                     throw new IllegalArgumentException(
-                            "Attempt to combine Packets with"
-                                    + " nonsequential packet IDs!");
+                        "Attempt to combine Packets with"
+                            + " nonsequential packet IDs!");
                 l += pkts[i].len;
             }
             rb = ByteBuffer.allocate(l);
@@ -395,10 +394,10 @@ class Packet implements Comparable {
      *         returned.
      */
     ByteBuffer appendToByteBuffer(ByteBuffer bb)
-            throws NullPointerException
+        throws NullPointerException
     {
         int need = ( ( (payload == null) ? 0 : payload.length) + metaDataLength())
-                - bb.remaining();
+            - bb.remaining();
         ByteBuffer rb = null;
         if (need > 0)
             rb = ByteBuffer.allocate(need + bb.capacity()).put(bb);
@@ -446,44 +445,41 @@ class Packet implements Comparable {
      *             room left to append the metadata.
      */
     protected void appendPacketHeader(final ByteBuffer bb)
-            throws NullPointerException, BufferOverflowException
+        throws NullPointerException, BufferOverflowException
     {
-        bb.putInt(PACKET_MAGIC_ID).putLong(genID).putLong(msgID).putInt(
-                pktID).putShort(len);
+        bb.putInt(PACKET_MAGIC_ID).putLong(genID).putLong(bndlID).putInt(
+            pktID).putShort(len);
     }
 
     static Packet valueOf(ByteBuffer buf)
-            throws IllegalArgumentException, BufferUnderflowException
+        throws IllegalArgumentException, BufferUnderflowException
     {
         long g, m;
         int p;
         short l;
         byte[] b;
         Packet rp = null;
-        if (buf.remaining() < HEARTBEAT_PACKET
-                .minimumPacketLength()) {
-            System.err.println("Oooops!");
-        }
+        /*
+         * if (buf.remaining() < HEARTBEAT_PACKET .minimumPacketLength()) {
+         * System.err.println("Oooops!"); }
+         */
         if (buf != null
-                && buf.remaining() >= HEARTBEAT_PACKET
-                        .minimumPacketLength())
+            && buf.remaining() >= HEARTBEAT_PACKET.minimumPacketLength())
         {
             ByteBuffer bb = buf.asReadOnlyBuffer();
             // parse it
             try {
-                if (bb.getInt() != PACKET_MAGIC_ID)
-                    throw new IllegalArgumentException(
-                            "Attempt to parse a ByteBuffer"
-                                    + " with an invalid Packet marker!");
-                g = bb.getLong();
-                m = bb.getLong();
-                p = bb.getInt();
-                l = bb.getShort();
-                b = ( (l < 1) || (p == 0)) ? null : new byte[l];
-                rp = newPacket(g, m, p, l, b);
-                rp.readMetaData(bb);
-                if ( (rp.payload != null) && (rp.payload.length > 0)) {
-                    bb.get(rp.payload);
+                if (bb.getInt() == PACKET_MAGIC_ID) {
+                    g = bb.getLong();
+                    m = bb.getLong();
+                    p = bb.getInt();
+                    l = bb.getShort();
+                    b = ( (l < 1) || (p == 0)) ? null : new byte[l];
+                    rp = newPacket(g, m, p, l, b);
+                    rp.readMetaData(bb);
+                    if ( (rp.payload != null) && (rp.payload.length > 0)) {
+                        bb.get(rp.payload);
+                    }
                 }
             } catch (BufferUnderflowException e) {
                 rp = null;
@@ -511,7 +507,7 @@ class Packet implements Comparable {
      *             enough data to read.
      */
     protected void readMetaData(ByteBuffer b)
-            throws NullPointerException, BufferUnderflowException
+        throws NullPointerException, BufferUnderflowException
     {}
 
 }

@@ -74,9 +74,9 @@ class PacketFactory {
         return Packet.getHeartbeatPacket();
     }
     
-    static Packet[] decompose(ByteBuffer ibb,short psz,long gen, long msg)
+    static Packet[] decompose(ByteBuffer ibb,short psz,long gen, long bndl)
     throws IllegalArgumentException {
-        return Packet.decompose(ibb, psz, gen, msg);
+        return Packet.decompose(ibb, psz, gen, bndl);
     }
     
     static Packet newPacket(long gid, long mid, int pid, short l, byte[] p) {
