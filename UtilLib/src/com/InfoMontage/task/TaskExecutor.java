@@ -38,11 +38,12 @@ import com.InfoMontage.version.GenericCodeVersion;
 import java.util.Stack;
 
 /**
+ * NOTE: made public solely for purposes of javadoc type resolution.
  * 
  * @author Richard A. Mead <BR>
  *         Information Montage
  */
-final class TaskExecutor
+public final class TaskExecutor
     extends Thread
 {
 
@@ -74,7 +75,7 @@ final class TaskExecutor
             IllegalArgumentException e = (IllegalArgumentException) new IllegalArgumentException(
                 "Attempt to create a TaskExecutor with a null TaskExecutorPool!")
                 .initCause(new NullPointerException());
-            assert (log.warning(e.toString()));
+            assert (log.throwing(e));
             throw e;
         }
         myFactory = factory;
@@ -101,21 +102,21 @@ final class TaskExecutor
             IllegalStateException e = new IllegalStateException(
                 "Attempt to use a TaskExecutor that is still a member of the"
                     + " TaskExecutorPool's TaskExecutor pool!");
-            assert (log.warning(e.toString()));
+            assert (log.throwing(e));
             throw e;
         }
         if (!waiting.getState()) {
             IllegalStateException e = new IllegalStateException(
                 "Attempt to use a TaskExecutor that"
                     + " is already executing a Task!");
-            assert (log.warning(e.toString()));
+            assert (log.throwing(e));
             throw e;
         }
         if (!this.running.getState()) {
             IllegalStateException e = new IllegalStateException(
                 "Attempt to use a TaskExecutor that"
                     + " has not been started!");
-            assert (log.warning(e.toString()));
+            assert (log.throwing(e));
             throw e;
         }
         myTask = t;
@@ -128,71 +129,64 @@ final class TaskExecutor
     }
 
     synchronized boolean isWaiting() {
-        assert (log.entering("com.InfoMontage.task.TaskExecutor",
-            "isWaiting()", "start of method"));
-
+        assert (log.entering("start of method"));
 
         boolean returnboolean = waiting.getState();
-        assert (log.exiting("com.InfoMontage.task.TaskExecutor",
-            "isWaiting()", "end of method - return value = "
-                + returnboolean));
+        assert (log.exiting("end of method - return value = "
+            + returnboolean));
         return returnboolean;
     }
 
     public void run() throws IllegalStateException {
-        assert (log.entering("com.InfoMontage.task.TaskExecutor", "run()",
-            "start of method"));
+        assert (log.entering("start of method"));
 
         if (running.getState()) {
             IllegalStateException e = new IllegalStateException(
                 "Attempt to run a ThreadTask that" + " is already running!");
-            assert (log.warning(e.toString()));
+            assert (log.throwing(e));
             throw e;
         }
         running.setState(true);
         while (running.getState()) {
             try {
+                assert (log.gettingLock(waiting));
                 synchronized (waiting) {
+                    assert (log.gotLock(waiting));
                     waiting.setState(true);
                     waiting.wait();
                     waiting.setState(false);
+                    assert (log.releasedLock(waiting));
                 }
             } catch (InterruptedException e) {
-                assert (log.throwing("com.InfoMontage.task.TaskExecutor",
-                    "run()", e));
-
-                // No idea why this would happen...
+                assert (log.throwing(e));
                 throw (RuntimeException) new RuntimeException()
                     .initCause(e);
             }
+            assert (log.gettingLock(validExecutor));
             synchronized (validExecutor) {
+                assert (log.gotLock(validExecutor));
                 if (myTask != null) {
-                    synchronized (myTask) {
-                        myTask.processTask();
-                        myTask.clearTaskParameters();
-                    }
+                    myTask.processTask();
                 }
-                validExecutor.setState(false);
                 myTask = null;
+                validExecutor.setState(false);
                 myFactory.returnTaskExecutor(this);
+                assert (log.releasedLock(validExecutor));
             }
         }
 
-        assert (log.exiting("com.InfoMontage.task.TaskExecutor", "run()",
-            "end of method"));
+        assert (log.exiting("end of method"));
     }
 
     public synchronized void stopRunning()
         throws IllegalMonitorStateException
     {
-        assert (log.entering("com.InfoMontage.task.TaskExecutor",
-            "stopRunning()", "start of method"));
+        assert (log.entering("start of method"));
 
         running.setState(false);
         waiting.notify();
 
-        assert (log.exiting("com.InfoMontage.task.TaskExecutor",
-            "stopRunning()", "end of method"));
+        assert (log.exiting("end of method"));
     }
 
 }
