@@ -1,5 +1,5 @@
 /*
- * GenericCodeVersionTest.java
+ * GenericCodeVersion_TestClass.java
  * 
  * Created on Feb 16, 2005
  */
@@ -35,7 +35,7 @@ import junit.framework.TestCase;
  * @author Richard A. Mead <BR>
  *         Information Montage
  */
-public class GenericCodeVersionTest
+public class GenericCodeVersion_TestClass
     extends TestCase
 {
 
@@ -70,7 +70,7 @@ public class GenericCodeVersionTest
     }
 
     public static void main(String[] args) {
-        junit.swingui.TestRunner.run(GenericCodeVersionTest.class);
+        junit.swingui.TestRunner.run(GenericCodeVersion_TestClass.class);
     }
 
     /*
@@ -88,11 +88,11 @@ public class GenericCodeVersionTest
     }
 
     /**
-     * Constructor for GenericCodeVersionTest.
+     * Constructor for GenericCodeVersion_TestClass.
      * 
      * @param arg0
      */
-    public GenericCodeVersionTest(String arg0) {
+    public GenericCodeVersion_TestClass(String arg0) {
         super(arg0);
     }
 
