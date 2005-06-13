@@ -56,7 +56,8 @@ public abstract class AbstractTask
      * Comment for <code>params</code>
      */
     protected volatile Object[] params = null;
-
+    protected boolean paramsSet = false;
+    
     /**
      * Comment for <code>processing</code>
      */
@@ -83,7 +84,7 @@ public abstract class AbstractTask
      */
     public float percentComplete() {
         // default is 0% until done
-        return (isProcessing() && null!=params) ? 0.0f : 100.0f;
+        return (isProcessing() && null != params) ? 0.0f : 100.0f;
     }
 
     /*
@@ -92,9 +93,18 @@ public abstract class AbstractTask
      * @see com.InfoMontage.task.Task#processTask()
      */
     public synchronized void processTask() throws IllegalStateException {
+        if (this.paramsSet) {
         processing.setState(true);
         this.doTask();
+        this.params = null;
+        this.paramsSet=false;
         processing.setState(false);
+        } else {
+            IllegalStateException e=new IllegalStateException("Attempt to"
+                +" process a Task that has not had it's parameters set first!");
+            assert (log.throwing(e));
+            throw e;
+        }
     }
 
     /**
@@ -117,6 +127,7 @@ public abstract class AbstractTask
                 .initCause(e);
         } else {
             this.params = pa;
+            this.paramsSet=true;
         }
     }
 
@@ -137,7 +148,7 @@ public abstract class AbstractTask
     /**
      * @param pa
      * @return null if parameters are valid for the subclass, otherwise an
-     * {@link Exception} explaining why validation failed.
+     *         {@link Exception}explaining why validation failed.
      */
     abstract protected Exception validateParameters(Object[] pa);
 
