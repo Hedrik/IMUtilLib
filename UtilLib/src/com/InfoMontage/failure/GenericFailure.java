@@ -1,5 +1,5 @@
 /*
- * FailureReason.java
+ * GenericFailure.java
  *
  * Created on July 28, 2003, 1:12 AM
  */
@@ -27,32 +27,23 @@
 
 package com.InfoMontage.failure;
 
-import com.InfoMontage.net.ConnectionFailure;
 import com.InfoMontage.version.CodeVersion;
 import com.InfoMontage.version.GenericCodeVersion;
+import com.InfoMontage.failure.AbstractFailure;
 
 /**
  *
  * @author Richard A. Mead <BR> Information Montage
  */
-public interface Failure {
+public final class GenericFailure extends AbstractFailure {
     
-    static final CodeVersion INTERFACE_CODE_VERSION = com.InfoMontage.version.GenericCodeVersion
+    public static CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
     .codeVersionFromCVSRevisionString("$Revision$");
     
-    static final Exception DEFAULT_EXCEPTION = new Exception();
+    static Exception thisFailureClassExceptionType = DEFAULT_EXCEPTION;
     
-    static final Failure FAILURE_REASON_STUB_CODE
-    = new GenericFailure("Function not yet implemented");
-    
-    String getReason();
-
-    void throwException() throws Exception;
-    
-    void throwException(String extra) throws Exception;
-    
-    void throwException(Exception e) throws Exception;
-    
-    void throwException(Exception e, String extra) throws Exception;
-    
+    GenericFailure(String reason) {
+        super(reason);
+    }
+        
 }

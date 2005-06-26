@@ -36,7 +36,8 @@ import com.InfoMontage.version.GenericCodeVersion;
  */
 public abstract class AbstractFailure extends Exception implements Failure {
     
-    public static CodeVersion implCodeVersion = new GenericCodeVersion("0.0.0.1a");
+    public static CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
+    .codeVersionFromCVSRevisionString("$Revision$");
     
     protected String failureReason = null;
     
