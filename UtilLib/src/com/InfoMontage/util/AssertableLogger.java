@@ -810,7 +810,7 @@ public class AssertableLogger {
      * class of the calling method is logged.
      */
     public boolean entering() {
-        StackTraceElement ste = Thread.currentThread().getStackTrace()[1];
+        StackTraceElement ste = new Throwable().fillInStackTrace().getStackTrace()[1];
         logger.entering(ste.getClassName(), ste.getMethodName());
         return true;
     }
@@ -827,7 +827,7 @@ public class AssertableLogger {
      * @param params array of parameters to the method being entered
      */
     public boolean entering(Object[] params) {
-        StackTraceElement ste = Thread.currentThread().getStackTrace()[1];
+        StackTraceElement ste = new Throwable().fillInStackTrace().getStackTrace()[1];
         logger.entering(ste.getClassName(), ste.getMethodName(), params);
         return true;
     }
@@ -843,7 +843,7 @@ public class AssertableLogger {
      * @param param1 parameter to the method being entered
      */
     public boolean entering(Object param1) {
-        StackTraceElement ste = Thread.currentThread().getStackTrace()[1];
+        StackTraceElement ste = new Throwable().fillInStackTrace().getStackTrace()[1];
         logger.entering(ste.getClassName(), ste.getMethodName(), param1);
         return true;
     }
@@ -859,7 +859,7 @@ public class AssertableLogger {
      * @param result Object that is being returned
      */
     public boolean exiting(Object result) {
-        StackTraceElement ste = Thread.currentThread().getStackTrace()[1];
+        StackTraceElement ste = new Throwable().fillInStackTrace().getStackTrace()[1];
         logger.exiting(ste.getClassName(), ste.getMethodName(), result);
         return true;
     }
@@ -874,7 +874,7 @@ public class AssertableLogger {
      *  
      */
     public boolean exiting() {
-        StackTraceElement ste = Thread.currentThread().getStackTrace()[1];
+        StackTraceElement ste = new Throwable().fillInStackTrace().getStackTrace()[1];
         logger.exiting(ste.getClassName(), ste.getMethodName());
         return true;
     }
@@ -899,7 +899,7 @@ public class AssertableLogger {
      * @param thrown The Throwable that is being thrown.
      */
     public boolean throwing(Throwable thrown) {
-        StackTraceElement ste = Thread.currentThread().getStackTrace()[1];
+        StackTraceElement ste = new Throwable().fillInStackTrace().getStackTrace()[1];
         logger.throwing(ste.getClassName(), ste.getMethodName(), thrown);
         return true;
     }
@@ -919,7 +919,7 @@ public class AssertableLogger {
      */
     public boolean gettingLock(Object lockObj) {
         Thread t = Thread.currentThread();
-        StackTraceElement ste = Thread.currentThread().getStackTrace()[1];
+        StackTraceElement ste = new Throwable().fillInStackTrace().getStackTrace()[1];
         logger.logp(Level.FINEST, ste.getClassName(), ste.getMethodName(),
             t+" attempting to aquire lock on \"{0}\"", lockObj);
         return true;
@@ -940,7 +940,7 @@ public class AssertableLogger {
      */
     public boolean gotLock(Object lockObj) {
         Thread t = Thread.currentThread();
-        StackTraceElement ste = Thread.currentThread().getStackTrace()[1];
+        StackTraceElement ste = new Throwable().fillInStackTrace().getStackTrace()[1];
         logger.logp(Level.FINEST, ste.getClassName(), ste.getMethodName(),
             t+" successfully aquired lock on \"{0}\"", lockObj);
         return true;
@@ -960,7 +960,7 @@ public class AssertableLogger {
      */
     public boolean releasedLock(Object lockObj) {
         Thread t = Thread.currentThread();
-        StackTraceElement ste = t.getStackTrace()[1];
+        StackTraceElement ste = new Throwable().fillInStackTrace().getStackTrace()[1];
         logger.logp(Level.FINEST, ste.getClassName(), ste.getMethodName(),
             t+" released lock on \"{0}\"", lockObj);
         return true;
