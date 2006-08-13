@@ -69,4 +69,9 @@ public interface Task {
      *             {@link Task#isProcessing method}).
      */
     void clearTaskParameters() throws IllegalStateException;
+    
+    /**
+     * Sleep until this task has completed it's processing.
+     */
+    void join();
 }
