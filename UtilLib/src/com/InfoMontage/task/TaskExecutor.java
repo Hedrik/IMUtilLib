@@ -95,10 +95,10 @@ public final class TaskExecutor extends Thread {
 	assert (log.entering("com.InfoMontage.task.TaskExecutor",
 		"executeTask(Task t = " + t + ")", "start of method"));
 
-	if (!validExecutor.getState()) {
+	if (!this.running.getState()) {
 	    IllegalStateException e = new IllegalStateException(
-		    "Attempt to use a TaskExecutor that is still a member of the"
-			    + " TaskExecutorPool's TaskExecutor pool!");
+		    "Attempt to use a TaskExecutor that"
+			    + " has not been started!");
 	    assert (log.throwing(e));
 	    throw e;
 	}
@@ -109,10 +109,10 @@ public final class TaskExecutor extends Thread {
 	    assert (log.throwing(e));
 	    throw e;
 	}
-	if (!this.running.getState()) {
+	if (!validExecutor.getState()) {
 	    IllegalStateException e = new IllegalStateException(
-		    "Attempt to use a TaskExecutor that"
-			    + " has not been started!");
+		    "Attempt to use a TaskExecutor that is still a member of the"
+			    + " TaskExecutorPool's TaskExecutor pool!");
 	    assert (log.throwing(e));
 	    throw e;
 	}
