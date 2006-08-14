@@ -47,7 +47,7 @@ public final class TaskExecutor extends Thread {
 	    TaskExecutor.class.getName());
 
     public static CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
-    .codeVersionFromCVSRevisionString("$Revision$");
+	    .codeVersionFromCVSRevisionString("$Revision$");
 
     private final BooleanState running = new BooleanState(false);
 
@@ -158,18 +158,25 @@ public final class TaskExecutor extends Thread {
 		assert (log.throwing(e));
 		this.stopRunning();
 		throw (RuntimeException) new RuntimeException().initCause(e);
-	    }
-	    assert (log.gettingLock(validExecutor));
-	    synchronized (validExecutor) {
-		assert (log.gotLock(validExecutor));
-		if (myTask != null) {
+	    }/*
+                 * assert (log.gettingLock(validExecutor)); synchronized
+                 * (validExecutor) { assert (log.gotLock(validExecutor));
+                 */
+	    if (myTask != null) {
+		assert (log.gettingLock(myTask));
+		synchronized (myTask) {
+		    assert (log.gotLock(myTask));
+		    //Thread.yield(); // <-- this breaks things, but shouldn't!
 		    myTask.processTask();
 		}
 		myTask = null;
-		validExecutor.setState(false);
-		myFactory.returnTaskExecutor(this);
-		assert (log.releasedLock(validExecutor));
+		assert (log.releasedLock(myTask));
 	    }
+	    validExecutor.setState(false);
+	    myFactory.returnTaskExecutor(this);/*
+                                                 * assert
+                                                 * (log.releasedLock(validExecutor)); }
+                                                 */
 	}
 
 	assert (log.exiting("end of method"));
