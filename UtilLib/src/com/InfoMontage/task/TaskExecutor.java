@@ -117,10 +117,26 @@ public final class TaskExecutor extends Thread {
 	    throw e;
 	}
 	myTask = t;
-	synchronized (this.waiting) {
-	    this.waiting.notify();
+	assert (log.gettingLock(validExecutor));
+	synchronized (validExecutor) {
+	    assert (log.gotLock(validExecutor));
+	    assert (log.gettingLock(this.waiting));
+	    synchronized (this.waiting) {
+		assert (log.gotLock(this.waiting));
+		this.waiting.notify();
+		assert (log.releasedLock(this.waiting));
+	    }
+	    while (this.isWaiting()) {
+		try {
+		    this.validExecutor.wait();
+		} catch (InterruptedException e) {
+		    assert (log.throwing(e));
+		    throw (RuntimeException) new RuntimeException()
+			    .initCause(e);
+		}
+	    }
+	    assert (log.releasedLock(validExecutor));
 	}
-	Thread.yield();
 
 	assert (log.exiting("com.InfoMontage.task.TaskExecutor",
 		"executeTask(Task t = " + t + ")", "end of method"));
@@ -158,25 +174,20 @@ public final class TaskExecutor extends Thread {
 		assert (log.throwing(e));
 		this.stopRunning();
 		throw (RuntimeException) new RuntimeException().initCause(e);
-	    }/*
-                 * assert (log.gettingLock(validExecutor)); synchronized
-                 * (validExecutor) { assert (log.gotLock(validExecutor));
-                 */
+	    }
+	    assert (log.gettingLock(validExecutor));
+	    synchronized (validExecutor) {
+		assert (log.gotLock(validExecutor));
+		validExecutor.notify();
+		assert (log.releasedLock(validExecutor));
+	    }
 	    if (myTask != null) {
-		assert (log.gettingLock(myTask));
-		synchronized (myTask) {
-		    assert (log.gotLock(myTask));
-		    //Thread.yield(); // <-- this breaks things, but shouldn't!
-		    myTask.processTask();
-		}
+		Thread.yield();
+		myTask.processTask();
 		myTask = null;
-		assert (log.releasedLock(myTask));
 	    }
 	    validExecutor.setState(false);
-	    myFactory.returnTaskExecutor(this);/*
-                                                 * assert
-                                                 * (log.releasedLock(validExecutor)); }
-                                                 */
+	    myFactory.returnTaskExecutor(this);
 	}
 
 	assert (log.exiting("end of method"));
