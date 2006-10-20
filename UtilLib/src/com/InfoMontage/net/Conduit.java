@@ -56,7 +56,6 @@ import javax.net.ssl.SSLSocket;
 
 import com.InfoMontage.common.Defaults;
 import com.InfoMontage.math.BigCounter;
-import com.InfoMontage.task.AbstractTask;
 import com.InfoMontage.task.Task;
 import com.InfoMontage.task.TaskExecutor;
 import com.InfoMontage.task.TaskExecutorPool;
@@ -202,11 +201,10 @@ public final class Conduit extends AbstractSelectableChannel {
 			    // Conduit.
 			    if (!ctc.beingProcessed.getState()) {
 				ctc.beingProcessed.setState(true);
-				Conduit.RECEIVE_TASKS[i]
-					.setTaskParameters(new Object[] { ctc });
 				try {
 				    Conduit.RECEIVER_TASK_FACTORY.doTask(
-					    Conduit.RECEIVE_TASKS[i], false);
+					    Conduit.RECEIVE_TASKS[i],
+					    new Object[] { ctc }, false);
 				} catch (InterruptedException e) {
 				    // TODO Close the conduit??
 				}
@@ -251,7 +249,7 @@ public final class Conduit extends AbstractSelectableChannel {
          * @author Richard A. Mead <BR>
          *         Information Montage
          */
-    public static class ReceiverTask extends AbstractTask {
+    public static class ReceiverTask implements Task {
 
 	/**
          * {@link Logger}for this class.
@@ -259,12 +257,14 @@ public final class Conduit extends AbstractSelectableChannel {
 	private static final AssertableLogger log = new AssertableLogger(
 		ReceiverTask.class.getName());
 
+	private Object[] params;
+
 	/**
          * Parameter validation routine for ReceiverTasks.
          * 
-         * @see com.InfoMontage.task.AbstractTask#validateParameters(java.lang.Object[])
+         * @see com.InfoMontage.task.ExecutableTask#validateParameters(java.lang.Object[])
          */
-	protected Exception validateParameters(Object[] pa) {
+	public Exception validateParameters(Object[] pa) {
 	    Exception retVal = null;
 	    Conduit c = null;
 	    try {
@@ -290,9 +290,9 @@ public final class Conduit extends AbstractSelectableChannel {
 	/**
          * The actual work of receiving data is done here.
          * 
-         * @see com.InfoMontage.task.AbstractTask#doTask()
+         * @see com.InfoMontage.task.ExecutableTask#doTask()
          */
-	protected void doTask() {
+	public void doTask() {
 	    Iterator i;
 	    Conduit c;
 	    assert (log.finer("Beginning receive task."));
@@ -319,6 +319,52 @@ public final class Conduit extends AbstractSelectableChannel {
 	    assert (log.releasedLock(this.params[0]));
 	    c.beingProcessed.setState(false);
 	    assert (log.info("Receive task completed."));
+	}
+
+	/*
+         * (non-Javadoc)
+         * 
+         * @see com.InfoMontage.task.Task#clearTaskParameters()
+         */
+	public void clearParameters() throws IllegalStateException {
+	    this.params = null;
+	}
+
+	/*
+         * (non-Javadoc)
+         * 
+         * @see com.InfoMontage.task.Task#isProcessing()
+         */
+	public boolean isProcessing() {
+	    return (this.params == null) ? false
+		    : ((Conduit) (this.params[0])).beingProcessed.getState();
+	}
+
+	/*
+         * (non-Javadoc)
+         * 
+         * @see com.InfoMontage.task.Task#percentComplete()
+         */
+	public float percentComplete() {
+	    return (this.isProcessing()) ? 0 : 1;
+	}
+
+	/*
+         * (non-Javadoc)
+         * 
+         * @see com.InfoMontage.task.Task#setTaskParameters(java.lang.Object[])
+         */
+	public void setParameters(Object[] pa) throws IllegalArgumentException {
+	    this.params = pa;
+	}
+
+	/*
+         * (non-Javadoc)
+         * 
+         * @see com.InfoMontage.task.Task#getResults()
+         */
+	public Object[] getResults() throws IllegalStateException {
+	    return null;
 	}
     }
 
@@ -1096,7 +1142,7 @@ public final class Conduit extends AbstractSelectableChannel {
 				buf.put(m);
 			    }
 			    // will remove from queue when receive Ack of
-                                // Ack
+			    // Ack
 			    // or timeout while waiting for Ack of Ack
 			    // this.inBndlQueues.remove(mqk);
 			}
