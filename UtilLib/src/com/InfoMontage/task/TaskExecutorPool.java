@@ -57,16 +57,17 @@ import java.util.Stack;
 public final class TaskExecutorPool {
 
     /**
-         * By convention, for use with {@link com.InfoMontage.util.CodeVersion}
-         * methods, implementation versions are kept in a public static field
-         * named <code>implCodeVersion</code>.
+         * Implementation file version. By convention, for use with
+         * {@link com.InfoMontage.util.CodeVersion} methods, implementation
+         * versions are kept in a public static field named
+         * <code>implCodeVersion</code>.
          * 
          * @see com.InfoMontage.util.CodeVersion
          *      com.InfoMontage.version.CodeVersion
          *      com.InfoMontage.version.GenericCodeVersion
          */
     public static CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
-    .codeVersionFromCVSRevisionString("$Revision$");
+	    .codeVersionFromCVSRevisionString("$Revision$");
 
     /**
          * Comment for <code>taskThreadPool</code>
@@ -425,33 +426,36 @@ public final class TaskExecutorPool {
          * 
          * @param t
          *                The task to perform
-         * @return true if execution of task has started; <BR>
-         *         false if the task will not be executed.
+         * @param p
+         *                The parameters to be used by the task
+         * @return An ExecutionState object if execution of task has started;
+         *         <BR>
+         *         null if the task will not be executed.
          * @throws InterruptedException
          *                 if the thread calling this function is interrupted
          *                 while waiting for the TaskExecutorPool's blocking
          *                 task executor thread. This will only happen if
          *                 allowBlocking is true.
          */
-    public boolean doTask(Task t, boolean allowBlocking)
+    public ExecutionState doTask(Task t, Object[] p, boolean allowBlocking)
 	    throws InterruptedException {
 	if (log.isLoggable(Level.FINER)) {
 	    log.entering("com.InfoMontage.task.TaskExecutorPool",
 		    "doTask(Task t = " + t + ")", "start of method");
 	}
 
-	boolean retVal = false;
+	ExecutionState retVal = null;
+	ExecutableTask et = new ExecutableTask(t);
+	et.setTaskParameters(p);
 	synchronized (taskThreadPool) {
 	    synchronized (activeTaskThreads) {
 		if (activeTaskThreads.size() < absoluteMaxThreads) {
-		    getTaskExecutor().executeTask(t);
-		    retVal = true;
+		    retVal = getTaskExecutor().executeTask(et);
 		}
 	    }
-	    if (!retVal && allowBlocking) {
+	    if ((null == retVal) && allowBlocking) {
 		taskThreadPool.wait();
-		getTaskExecutor().executeTask(t);
-		retVal = true;
+		retVal = getTaskExecutor().executeTask(et);
 	    }
 	}
 

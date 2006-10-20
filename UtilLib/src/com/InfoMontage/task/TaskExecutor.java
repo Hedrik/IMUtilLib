@@ -30,7 +30,6 @@ package com.InfoMontage.task;
 import com.InfoMontage.util.AssertableLogger;
 import com.InfoMontage.util.BooleanState;
 import com.InfoMontage.version.CodeVersion;
-import com.InfoMontage.version.GenericCodeVersion;
 
 /**
  * NOTE: made public solely for purposes of javadoc type resolution.
@@ -46,7 +45,17 @@ public final class TaskExecutor extends Thread {
     private static final AssertableLogger log = new AssertableLogger(
 	    TaskExecutor.class.getName());
 
-    public static CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
+    /**
+         * Implementation file version. By convention, for use with
+         * {@link com.InfoMontage.util.CodeVersion} methods, implementation
+         * versions are kept in a public static field named
+         * <code>implCodeVersion</code>.
+         * 
+         * @see com.InfoMontage.util.CodeVersion
+         *      com.InfoMontage.version.CodeVersion
+         *      com.InfoMontage.version.GenericCodeVersion
+         */
+    public static final CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
 	    .codeVersionFromCVSRevisionString("$Revision$");
 
     private final BooleanState running = new BooleanState(false);
@@ -57,7 +66,7 @@ public final class TaskExecutor extends Thread {
 
     private final BooleanState waiting = new BooleanState(false);
 
-    private volatile Task myTask = null;
+    private volatile ExecutableTask myTask = null;
 
     /** Creates a new instance of a TaskExecutor - package access only */
     TaskExecutor(TaskExecutorPool factory, ThreadGroup group, int stackSize) {
@@ -90,10 +99,13 @@ public final class TaskExecutor extends Thread {
 	assert (log.finer("TaskExecutor Validated."));
     }
 
-    synchronized void executeTask(Task t) throws IllegalStateException,
-	    IllegalMonitorStateException {
+    synchronized ExecutionState executeTask(ExecutableTask t)
+	    throws IllegalStateException, IllegalMonitorStateException {
+
+	ExecutionState retVal = null;
+
 	assert (log.entering("com.InfoMontage.task.TaskExecutor",
-		"executeTask(Task t = " + t + ")", "start of method"));
+		"executeTask(ExecutableTask t = " + t + ")", "start of method"));
 
 	if (!this.running.getState()) {
 	    IllegalStateException e = new IllegalStateException(
@@ -105,7 +117,7 @@ public final class TaskExecutor extends Thread {
 	if (!waiting.getState()) {
 	    IllegalStateException e = new IllegalStateException(
 		    "Attempt to use a TaskExecutor that"
-			    + " is already executing a Task!");
+			    + " is already executing an ExecutableTask!");
 	    assert (log.throwing(e));
 	    throw e;
 	}
@@ -116,7 +128,10 @@ public final class TaskExecutor extends Thread {
 	    assert (log.throwing(e));
 	    throw e;
 	}
+
+	retVal = new ExecutionState(t);
 	myTask = t;
+
 	assert (log.gettingLock(validExecutor));
 	synchronized (validExecutor) {
 	    assert (log.gotLock(validExecutor));
@@ -139,7 +154,8 @@ public final class TaskExecutor extends Thread {
 	}
 
 	assert (log.exiting("com.InfoMontage.task.TaskExecutor",
-		"executeTask(Task t = " + t + ")", "end of method"));
+		"executeTask(ExecutableTask t = " + t + ")", "end of method"));
+	return retVal;
     }
 
     synchronized boolean isWaiting() {
@@ -150,6 +166,13 @@ public final class TaskExecutor extends Thread {
 	return returnboolean;
     }
 
+    /**
+         * The run method
+         * 
+         * @throws IllegalStateException
+         *                 if called when already running.
+         * @see java.lang.Thread#run()
+         */
     public void run() throws IllegalStateException {
 	assert (log.entering("start of method"));
 
@@ -184,6 +207,7 @@ public final class TaskExecutor extends Thread {
 	    if (myTask != null) {
 		Thread.yield();
 		myTask.processTask();
+		myTask.clearTaskParameters();
 		myTask = null;
 	    }
 	    validExecutor.setState(false);
@@ -193,7 +217,7 @@ public final class TaskExecutor extends Thread {
 	assert (log.exiting("end of method"));
     }
 
-    public synchronized void stopRunning() throws IllegalMonitorStateException {
+    synchronized void stopRunning() throws IllegalMonitorStateException {
 	assert (log.entering("start of method"));
 
 	running.setState(false);

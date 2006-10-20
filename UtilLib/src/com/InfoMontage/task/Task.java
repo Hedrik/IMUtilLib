@@ -27,6 +27,9 @@
 
 package com.InfoMontage.task;
 
+import com.InfoMontage.version.CodeVersion;
+import com.InfoMontage.version.GenericCodeVersion;
+
 /**
  * 
  * @author Richard A. Mead <BR>
@@ -35,43 +38,63 @@ package com.InfoMontage.task;
 public interface Task {
 
     /**
-     * @throws IllegalStateException if called prior to having the
-     *             {@link Task}s parameters set (via
-     *             {@link Task#setTaskParameters}).
-     */
-    void processTask() throws IllegalStateException;
+         * Interface file version. By convention, for use with
+         * {@link com.InfoMontage.util.CodeVersion} methods, interface versions
+         * are kept in a static field named <code>INTERFACE_CODE_VERSION</code>.
+         * 
+         * @see com.InfoMontage.util.CodeVersion
+         *      com.InfoMontage.version.CodeVersion
+         *      com.InfoMontage.version.GenericCodeVersion
+         */
+    static final CodeVersion INTERFACE_CODE_VERSION = GenericCodeVersion
+	    .codeVersionFromCVSRevisionString("$Revision$");
 
     /**
-     * @return true if currently processing the {@link Task}, false
-     *         otherwise.
-     *  
-     */
-    boolean isProcessing();
+         * @throws IllegalStateException
+         *                 if called prior to having the {@link Task}s
+         *                 parameters set (via {@link Task#setParameters}).
+         */
+    void doTask() throws IllegalStateException;
 
     /**
-     * @return 0.0f if no processing has occurred, 100.0f if processing has
-     *         completed, otherwise the percentage of the {@link Task}which
-     *         has been completed.
-     */
+         * @return 0.0f if no processing has occurred, 100.0f if processing has
+         *         completed, otherwise the percentage of the {@link Task} which
+         *         has been completed.
+         */
     float percentComplete();
 
     /**
-     * @param pa The parameters for this {@link Task}to process, in the form
-     *            of an array of {@link Object}s.
-     * @throws IllegalArgumentException
-     */
-    void setTaskParameters(final Object[] pa)
-        throws IllegalArgumentException;
+         * @param pa
+         *                The parameters for this {@link Task} to process, in
+         *                the form of an array of {@link Object}s.
+         * @throws IllegalArgumentException
+         */
+    void setParameters(final Object[] pa) throws IllegalArgumentException;
 
     /**
-     * @throws IllegalStateException if called while the {@link Task}is
-     *             currently processing (as defined by the
-     *             {@link Task#isProcessing method}).
-     */
-    void clearTaskParameters() throws IllegalStateException;
-    
+         * @param pa
+         * @return null if parameters are valid for the subclass, otherwise an
+         *         {@link Exception}explaining why validation failed.
+         */
+    Exception validateParameters(Object[] pa);
+
     /**
-     * Sleep until this task has completed it's processing.
-     */
-    void join();
+         * @throws IllegalStateException
+         *                 if called while the {@link Task} is currently
+         *                 processing (as defined by the
+         *                 {@link Task#percentComplete()} method being
+         *                 non-zero).
+         */
+    void clearParameters() throws IllegalStateException;
+
+    /**
+         * @return Results of task execution, or null if there are none.
+         * @throws IllegalStateException
+         *                 if called while the {@link Task} is currently
+         *                 processing (as defined by the
+         *                 {@link Task#percentComplete()} method being
+         *                 non-zero).
+         */
+    Object[] getResults() throws IllegalStateException;
+
 }

@@ -27,14 +27,11 @@
 
 package com.InfoMontage.task;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import com.InfoMontage.util.AssertableLogger;
-
 import java.util.Vector;
+import java.util.logging.Level;
 
+import com.InfoMontage.util.AssertableLogger;
 import com.InfoMontage.version.CodeVersion;
-import com.InfoMontage.version.GenericCodeVersion;
 
 /**
  * 
@@ -49,7 +46,18 @@ public class TaskQueue {
     private static final AssertableLogger log = new AssertableLogger(
 	    TaskQueue.class.getName());
 
-    public static CodeVersion implCodeVersion = new GenericCodeVersion("0.9");
+    /**
+         * Implementation file version. By convention, for use with
+         * {@link com.InfoMontage.util.CodeVersion} methods, implementation
+         * versions are kept in a public static field named
+         * <code>implCodeVersion</code>.
+         * 
+         * @see com.InfoMontage.util.CodeVersion
+         *      com.InfoMontage.version.CodeVersion
+         *      com.InfoMontage.version.GenericCodeVersion
+         */
+    public static CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
+	    .codeVersionFromCVSRevisionString("$Revision$");
 
     private Vector queue;
 
@@ -141,9 +149,10 @@ public class TaskQueue {
 
 	boolean queued = false;
 
-	if (t.isProcessing()) {
+	if (t.percentComplete() > 0f) {
 	    log.severe("com.InfoMontage.task.TaskQueue attempt to enqeue a"
-		    + "task that is still processing: " + t);
+		    + "task that is still processing: " + t + "("
+		    + t.percentComplete() + "% complete)");
 	} else {
 	    synchronized (queue) {
 		while (maxQueueSize <= queue.size()) {

@@ -39,10 +39,10 @@ import junit.framework.TestCase;
 public class TaskExecutorPool_JUnitTest extends TestCase {
 
     volatile TaskExecutorPool p;
-
     volatile Task t1;
-
     volatile Task t2;
+    volatile ExecutionState tes1;
+    volatile ExecutionState tes2;
 
     public static void main(String[] args) {
 	junit.swingui.TestRunner.run(TaskExecutorPool_JUnitTest.class);
@@ -84,9 +84,7 @@ public class TaskExecutorPool_JUnitTest extends TestCase {
     public static class TaskExecutorPoolTestTask implements Task {
 
 	volatile boolean parmsSet = false;
-
 	volatile boolean taskDone = true;
-
 	volatile BooleanState joiner = new BooleanState(false);
 
 	/*
@@ -94,7 +92,7 @@ public class TaskExecutorPool_JUnitTest extends TestCase {
          * 
          * @see com.InfoMontage.task.Task#processTask()
          */
-	public synchronized void processTask() throws IllegalStateException {
+	public synchronized void doTask() throws IllegalStateException {
 	    synchronized (joiner) {
 		if (parmsSet)
 		    taskDone = true;
@@ -109,19 +107,10 @@ public class TaskExecutorPool_JUnitTest extends TestCase {
 	/*
          * (non-Javadoc)
          * 
-         * @see com.InfoMontage.task.Task#isProcessing()
-         */
-	public boolean isProcessing() {
-	    return (parmsSet && !taskDone);
-	}
-
-	/*
-         * (non-Javadoc)
-         * 
          * @see com.InfoMontage.task.Task#percentComplete()
          */
 	public float percentComplete() {
-	    return (isProcessing()) ? 0 : 100;
+	    return (parmsSet && !taskDone) ? 0 : 100;
 	}
 
 	/*
@@ -129,33 +118,16 @@ public class TaskExecutorPool_JUnitTest extends TestCase {
          * 
          * @see com.InfoMontage.task.Task#setTaskParameters(java.lang.Object[])
          */
-	public void setTaskParameters(Object[] pa)
+	public void setParameters(Object[] pa)
 		throws IllegalArgumentException, IllegalStateException {
-	    if (this.isProcessing()) {
-		throw new IllegalStateException(
-			"Task parameters being set while still processing!");
-	    } else {
+	    
 		if ((null != pa) && (pa.length == 1) && (null == pa[0]))
 		    parmsSet = true;
 		else
 		    throw new IllegalArgumentException(
 			    "Task parameters not being set to a valid value!");
 		taskDone = false;
-	    }
-	}
-
-	public void join() {
-	    synchronized (joiner) {
-		joiner.setState(true);
-		while (this.isProcessing()) {
-		    try {
-			this.joiner.wait();
-		    } catch (InterruptedException e) {
-			throw (RuntimeException) new RuntimeException()
-				.initCause(e);
-		    }
-		}
-	    }
+	    
 	}
 
 	/*
@@ -163,12 +135,24 @@ public class TaskExecutorPool_JUnitTest extends TestCase {
          * 
          * @see com.InfoMontage.task.Task#clearTaskParameters()
          */
-	public void clearTaskParameters() throws IllegalStateException {
-	    if (!this.isProcessing())
+	public void clearParameters() throws IllegalStateException {
+	    
 		parmsSet = false;
-	    else
-		throw new IllegalStateException(
-			"Task parameters being cleared while still processing task!");
+	    
+	}
+
+	/* (non-Javadoc)
+	 * @see com.InfoMontage.task.Task#validateParameters(java.lang.Object[])
+	 */
+	public Exception validateParameters(Object[] pa) {
+	    return null;
+	}
+
+	/* (non-Javadoc)
+	 * @see com.InfoMontage.task.Task#getResults()
+	 */
+	public Object[] getResults() throws IllegalStateException {
+	    return null;
 	}
 
     }
@@ -235,41 +219,45 @@ public class TaskExecutorPool_JUnitTest extends TestCase {
          */
     public void testDoMultiTask() {
 	try {
-	    t1.setTaskParameters(new Object[] { null });
-	    p.doTask(t1, false);
-	    t2.setTaskParameters(new Object[] { null });
-	    p.doTask(t2, false);
-	    t1.join();
-	    t1.clearTaskParameters();
-	    t2.join();
-	    t2.clearTaskParameters();
+	    tes1=p.doTask(t1, new Object[] { null }, false);
+	    tes2=p.doTask(t2, new Object[] { null }, false);
+	    tes1.waitForCompletion();
+	    tes2.waitForCompletion();
 
-	    t1.setTaskParameters(new Object[] { null });
-	    p.doTask(t1, false);
-	    t1.join();
-	    t1.clearTaskParameters();
-	    t2.setTaskParameters(new Object[] { null });
-	    p.doTask(t2, false);
-	    t2.join();
-	    t2.clearTaskParameters();
+	    tes1=p.doTask(t1, new Object[] { null }, false);
+	    tes1.waitForCompletion();
+	    tes2=p.doTask(t2, new Object[] { null }, false);
+	    tes2.waitForCompletion();
 
-	    t1.setTaskParameters(new Object[] { null });
-	    t2.setTaskParameters(new Object[] { null });
-	    p.doTask(t1, false);
-	    p.doTask(t2, false);
-	    t1.join();
-	    t2.join();
-	    t1.clearTaskParameters();
-	    t2.clearTaskParameters();
+	    tes1=p.doTask(t1, new Object[] { null }, true);
+	    tes2=p.doTask(t2, new Object[] { null }, true);
+	    tes1.waitForCompletion();
+	    tes2.waitForCompletion();
 
-	    t1.setTaskParameters(new Object[] { null });
-	    t2.setTaskParameters(new Object[] { null });
-	    p.doTask(t1, false);
-	    t1.join();
-	    t1.clearTaskParameters();
-	    p.doTask(t2, false);
-	    t2.join();
-	    t2.clearTaskParameters();
+	    tes1=p.doTask(t1, new Object[] { null }, true);
+	    tes1.waitForCompletion();
+	    tes2=p.doTask(t2, new Object[] { null }, true);
+	    tes2.waitForCompletion();
+
+	    tes1=p.doTask(t1, new Object[] { null }, false);
+	    tes2=p.doTask(t2, new Object[] { null }, true);
+	    tes1.waitForCompletion();
+	    tes2.waitForCompletion();
+
+	    tes1=p.doTask(t1, new Object[] { null }, false);
+	    tes1.waitForCompletion();
+	    tes2=p.doTask(t2, new Object[] { null }, true);
+	    tes2.waitForCompletion();
+
+	    tes1=p.doTask(t1, new Object[] { null }, true);
+	    tes2=p.doTask(t2, new Object[] { null }, false);
+	    tes1.waitForCompletion();
+	    tes2.waitForCompletion();
+
+	    tes1=p.doTask(t1, new Object[] { null }, true);
+	    tes1.waitForCompletion();
+	    tes2=p.doTask(t2, new Object[] { null }, false);
+	    tes2.waitForCompletion();
 
 	} catch (Exception e) {
 	    fail(e.toString());
@@ -284,10 +272,8 @@ public class TaskExecutorPool_JUnitTest extends TestCase {
 	TaskExecutorPool p = TaskExecutorPool.getPool();
 	Task t = new TaskExecutorPoolTestTask();
 	try {
-	    t.setTaskParameters(new Object[] { null });
-	    p.doTask(t, false);
-	    t.join();
-	    t.clearTaskParameters();
+	    ExecutionState tes=p.doTask(t, new Object[] { null }, false);
+	    tes.waitForCompletion();
 	} catch (Exception e) {
 	    fail(e.toString());
 	}
