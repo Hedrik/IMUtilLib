@@ -40,44 +40,45 @@ import com.InfoMontage.version.GenericCodeVersion;
  * @author  Richard A. Mead <BR> Information Montage
  */
 class ChecksumPacketFactory extends PacketFactory {
-    
-    public static CodeVersion implCodeVersion = new GenericCodeVersion("0.8a");
-    
+
+    public static CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
+    .codeVersionFromCVSRevisionString("$Revision$");
+
     /** The singleton instance of this class.
      */
     static private final ChecksumPacketFactory singleton=new ChecksumPacketFactory();
-    
+
     //static PacketFactory getInstance() { return singleton; }
-    
+
     /** PacketFactories are singletons.
      */
     private ChecksumPacketFactory() {}
-    
+
     static short getDefaultPayloadSize() {
-        return ChecksumPacket.DEFAULT_PACKET_PAYLOAD_LENGTH;
+	return ChecksumPacket.DEFAULT_PACKET_PAYLOAD_LENGTH;
     }
-    
+
     static Packet getHeartbeatPacket() {
-        return ChecksumPacket.getHeartbeatPacket();
+	return ChecksumPacket.getHeartbeatPacket();
     }
-    
+
     static Packet[] decompose(ByteBuffer ibb,short psz,long gen, long msg)
     throws IllegalArgumentException {
-        return ChecksumPacket.decompose(ibb, psz, gen, msg);
+	return ChecksumPacket.decompose(ibb, psz, gen, msg);
     }
-    
+
     static Packet newPacket(long gid, long mid, int pid, short l, byte[] p) {
-        return ChecksumPacket.newPacket(gid,mid,pid,l,p);
+	return ChecksumPacket.newPacket(gid,mid,pid,l,p);
     }
-    
+
     static ByteBuffer recombine(Packet[] pkts)
     throws IllegalArgumentException, NullPointerException {
-        return ChecksumPacket.recombine(pkts);
+	return ChecksumPacket.recombine(pkts);
     }
-    
+
     static Packet valueOf(ByteBuffer buf)
     throws IllegalArgumentException, BufferUnderflowException {
-        return ChecksumPacket.valueOf(buf);
+	return ChecksumPacket.valueOf(buf);
     }
-    
+
 }

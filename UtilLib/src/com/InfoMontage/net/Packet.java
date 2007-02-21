@@ -42,20 +42,24 @@ class Packet
     implements Comparable
 {
 
-    public static CodeVersion implCodeVersion = new GenericCodeVersion(
-        "0.8a");
+    /**
+	 * Code version for the Packet class. Determined from CVS file
+	 * revision.
+	 */
+public static CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
+	    .codeVersionFromCVSRevisionString("$Revision$");
 
     static final int PACKET_MAGIC_ID = ByteBuffer.wrap("PaKt".getBytes())
-        .getInt();
+	.getInt();
 
     public static final short DEFAULT_PACKET_PAYLOAD_LENGTH = 4096;
 
-    long genID = 0; // determined at connection protocol negotiation
-    long bndlID = 0;
-    int pktID = 0;
-    short len = Short.MIN_VALUE; // to differentiate an uninitialized Packet
+    volatile long genID = 0; // determined at connection protocol negotiation
+    volatile long bndlID = 0;
+    volatile int pktID = 0;
+    volatile short len = Short.MIN_VALUE; // to differentiate an uninitialized Packet
     // from a heartbeat
-    byte[] payload = null;
+    volatile byte[] payload = null;
 
     /**
      * Creates a new instance of Packet with default values for all fields.
@@ -64,10 +68,10 @@ class Packet
      * this is the object that is returned by the getHeartbeatPacket() method.
      */
     static final Packet HEARTBEAT_PACKET = new Packet(0, 0, 0, (short) 0,
-        null);
+	null);
 
     static Packet getHeartbeatPacket() {
-        return HEARTBEAT_PACKET;
+	return HEARTBEAT_PACKET;
     }
 
     /**
@@ -77,17 +81,17 @@ class Packet
      * The provided data will be validated.
      */
     Packet(long gid, long mid, int pid, short l, byte[] p)
-        throws IllegalArgumentException
+	throws IllegalArgumentException
     {
-        genID = gid;
-        bndlID = mid;
-        pktID = pid;
-        len = l;
-        payload = p;
-        if (!Packet.isValid(this))
-            throw new IllegalArgumentException(
-                "Attempt to create a Packet with"
-                    + " invalid or inconsistent parameters!");
+	genID = gid;
+	bndlID = mid;
+	pktID = pid;
+	len = l;
+	payload = p;
+	if (!Packet.isValid(this))
+	    throw new IllegalArgumentException(
+		"Attempt to create a Packet with"
+		    + " invalid or inconsistent parameters!");
     }
 
     /*
@@ -101,32 +105,32 @@ class Packet
      * comma.
      */
     public final String toString(StringBuffer xtra) {
-        StringBuffer s = new StringBuffer("Packet[gen=");
-        s.append(genID).append(",bndl=");
-        s.append(bndlID).append(",pkt=");
-        s.append(pktID);
-        if (pktID == 0)
-            s.append("{header}");
-        s.append(",len=").append(len);
-        if (xtra != null)
-            s.append(",").append(xtra);
-        s.append(",payload=");
-        if (payload == null)
-            s.append("null");
-        else if (payload.length == 0)
-            s.append("empty");
-        else {
-            s.append("{").append(payload[0]);
-            for (int i = 1; i < payload.length; i++ )
-                s.append(",").append(payload[i]);
-            s.append("}");
-        }
-        s.append("]");
-        return s.toString();
+	StringBuffer s = new StringBuffer("Packet[gen=");
+	s.append(genID).append(",bndl=");
+	s.append(bndlID).append(",pkt=");
+	s.append(pktID);
+	if (pktID == 0)
+	    s.append("{header}");
+	s.append(",len=").append(len);
+	if (xtra != null)
+	    s.append(",").append(xtra);
+	s.append(",payload=");
+	if (payload == null)
+	    s.append("null");
+	else if (payload.length == 0)
+	    s.append("empty");
+	else {
+	    s.append("{").append(payload[0]);
+	    for (int i = 1; i < payload.length; i++ )
+		s.append(",").append(payload[i]);
+	    s.append("}");
+	}
+	s.append("]");
+	return s.toString();
     }
 
     public String toString() {
-        return toString(null);
+	return toString(null);
     }
 
     /*
@@ -140,34 +144,34 @@ class Packet
      * to calculate the hash code.
      */
     public final int hashCode() {
-        // 17*37=629
-        return (629 + (int) (bndlID ^ (bndlID >>> 32))) * 37 + pktID;
+	// 17*37=629
+	return (629 + (int) (bndlID ^ (bndlID >>> 32))) * 37 + pktID;
     }
 
     public boolean equals(Packet p) throws IllegalStateException {
-        boolean isEqual = ( (p.bndlID == this.bndlID) && (p.pktID == this.pktID));
-        if (isEqual
-            && ( (p.len != this.len) || !java.util.Arrays.equals(p.payload,
-                this.payload)))
-            throw new IllegalStateException("Packets with equal bndlID and"
-                + " pktID found with differing content!");
-        return isEqual;
+	boolean isEqual = ( (p.bndlID == this.bndlID) && (p.pktID == this.pktID));
+	if (isEqual
+	    && ( (p.len != this.len) || !java.util.Arrays.equals(p.payload,
+		this.payload)))
+	    throw new IllegalStateException("Packets with equal bndlID and"
+		+ " pktID found with differing content!");
+	return isEqual;
     }
 
     public boolean equals(Object obj) throws IllegalStateException {
-        return ( (obj == this) || ( (obj instanceof Packet) && equals((Packet) obj)));
+	return ( (obj == this) || ( (obj instanceof Packet) && equals((Packet) obj)));
     }
 
     public int compareTo(Packet o) throws NullPointerException {
-        return (o == this) ? 0 : (bndlID < o.bndlID) ? -1
-            : (bndlID > o.bndlID) ? 1 : (pktID < o.pktID) ? -1
-                : (pktID > o.pktID) ? 1 : 0;
+	return (o == this) ? 0 : (bndlID < o.bndlID) ? -1
+	    : (bndlID > o.bndlID) ? 1 : (pktID < o.pktID) ? -1
+		: (pktID > o.pktID) ? 1 : 0;
     }
 
     public int compareTo(Object o)
-        throws NullPointerException, ClassCastException
+	throws NullPointerException, ClassCastException
     {
-        return (o == this) ? 0 : compareTo((Packet) o);
+	return (o == this) ? 0 : compareTo((Packet) o);
     }
 
     /**
@@ -185,21 +189,21 @@ class Packet
      * Note that a <CODE>null</CODE> Packet parameter is never valid.
      */
     private static boolean isValid(Packet p) {
-        boolean valid = false;
-        if (p != null)
-            if (p.pktID == 0) { // header packet
-                if (p.payload == null)
-                    valid = true;
-            } else if ( (p.payload != null) // null only valid for header
-                // packets
-                && (p.pktID > 0) // must be sequential to header packet
-                && (p.len == p.payload.length))
-                valid = true;
-        return valid;
+	boolean valid = false;
+	if (p != null)
+	    if (p.pktID == 0) { // header packet
+		if (p.payload == null)
+		    valid = true;
+	    } else if ( (p.payload != null) // null only valid for header
+		// packets
+		&& (p.pktID > 0) // must be sequential to header packet
+		&& (p.len == p.payload.length))
+		valid = true;
+	return valid;
     }
 
     boolean isValid() {
-        return Packet.isValid(this);
+	return Packet.isValid(this);
     }
 
     /**
@@ -231,39 +235,42 @@ class Packet
      *             length, or if <CODE>psz</CODE> is negative or zero.
      */
     static Packet[] decompose(ByteBuffer ibb, short psz, long gen, long bndl)
-        throws IllegalArgumentException
+	throws IllegalArgumentException
     {
-        if (ibb == null)
-            throw new NullPointerException(
-                "Attempt to compose Packets from" + " a null ByteBuffer!");
-        if (ibb.remaining() == 0)
-            throw new IllegalArgumentException(
-                "Attempt to compose Packets from" + " an empty ByteBuffer!");
-        if (psz < 1)
-            throw new IllegalArgumentException(
-                "Attempt to compose Packets from"
-                    + " a ByteBuffer using a non-positive payload size!");
-        int np = ibb.remaining() / psz;
-        int rb = ibb.remaining() - (np * psz);
-        np += (rb > 0) ? 1 : 0;
-        Packet[] rpa = new Packet[np + 1];
-        rpa[0] = newPacket(gen, bndl, 0, (short) (np), null);
-        for (int i = 1; i < np; i++ ) {
-            byte[] p = new byte[psz];
-            ibb.get(p);
-            rpa[i] = newPacket(gen, bndl, i, psz, p);
-        }
-        byte[] p = new byte[rb];
-        ibb.get(p);
-        rpa[np] = newPacket(gen, bndl, np, (short) rb, p);
-        return rpa;
+	if (ibb == null)
+	    throw new NullPointerException(
+		"Attempt to compose Packets from" + " a null ByteBuffer!");
+	if (ibb.remaining() == 0)
+	    throw new IllegalArgumentException(
+		"Attempt to compose Packets from" + " an empty ByteBuffer!");
+	if (psz < 1)
+	    throw new IllegalArgumentException(
+		"Attempt to compose Packets from"
+		    + " a ByteBuffer using a non-positive payload size!");
+	int nfp = ibb.remaining() / psz;
+	int rb = ibb.remaining() - (nfp * psz);
+	int np = nfp + ((rb > 0) ? 1 : 0);
+	System.err.println("---Creating "+np+" packets ("+nfp+" @ "+psz+" + "+((rb>0)?1:0)+" @ "+rb+")");
+	Packet[] rpa = new Packet[np + 1];
+	rpa[0] = newPacket(gen, bndl, 0, (short) (np), null);
+	for (int i = 1; i <= nfp; i++ ) {
+	    byte[] p = new byte[psz];
+	    ibb.get(p);
+	    rpa[i] = newPacket(gen, bndl, i, psz, p);
+	}
+	if (rb > 0) {
+	    byte[] p = new byte[rb];
+	    ibb.get(p);
+	    rpa[np] = newPacket(gen, bndl, np, (short) rb, p);
+	}
+	return rpa;
     }
 
     static Packet newPacket(long gid, long mid, int pid, short l, byte[] p)
     {
-        Packet npkt = new Packet(gid, mid, pid, l, p);
-        System.err.println("Created Packet: " + npkt);
-        return npkt;
+	Packet npkt = new Packet(gid, mid, pid, l, p);
+	System.err.println("Created Packet: " + npkt);
+	return npkt;
     }
 
     /**
@@ -317,65 +324,65 @@ class Packet
      */
     static ByteBuffer recombine(Packet[] pkts)
     // TBD: change to accept a List of Packets for performance
-        // {so that List.toArray is not needed
-        throws IllegalArgumentException, NullPointerException
+	// {so that List.toArray is not needed
+	throws IllegalArgumentException, NullPointerException
     {
-        int al = pkts.length;
-        if (al == 0)
-            throw new IllegalArgumentException(
-                "Attempt to combine Packets array" + " with no elements!");
-        ByteBuffer rb = null;
-        int l = 0;
-        if (al > 1)
-            java.util.Arrays.sort(pkts);
-        if (pkts[0].pktID != 0)
-            throw new IllegalArgumentException(
-                "Attempt to combine Packets with" + " no header packet!");
-        if (pkts[0].payload != null)
-            throw new IllegalArgumentException(
-                "Attempt to combine Packets with"
-                    + " a header packet containing a non-null payload!");
-        if (pkts[0].len != al - 1)
-            throw new IllegalArgumentException(
-                "Attempt to combine Packets with"
-                    + " a header packet specifying a different number of packets than"
-                    + " the number available!");
-        if (al > 1) {
-            long m = pkts[0].bndlID;
-            for (int i = 1; i < al; i++ ) {
-                if (pkts[i].bndlID != m)
-                    throw new IllegalArgumentException(
-                        "Attempt to combine Packets with"
-                            + " differing bundle IDs!");
-                if (pkts[i].pktID != i)
-                    throw new IllegalArgumentException(
-                        "Attempt to combine Packets with"
-                            + " nonsequential packet IDs!");
-                l += pkts[i].len;
-            }
-            rb = ByteBuffer.allocate(l);
-            for (int i = 1; i < al; i++ ) {
-                rb.put(pkts[i].payload);
-            }
-            rb.rewind();
-        } else {
-            rb = ByteBuffer.allocate(0);
-        }
-        return rb;
+	int al = pkts.length;
+	if (al == 0)
+	    throw new IllegalArgumentException(
+		"Attempt to combine Packets array" + " with no elements!");
+	ByteBuffer rb = null;
+	int l = 0;
+	if (al > 1)
+	    java.util.Arrays.sort(pkts);
+	if (pkts[0].pktID != 0)
+	    throw new IllegalArgumentException(
+		"Attempt to combine Packets with" + " no header packet!");
+	if (pkts[0].payload != null)
+	    throw new IllegalArgumentException(
+		"Attempt to combine Packets with"
+		    + " a header packet containing a non-null payload!");
+	if (pkts[0].len != al - 1)
+	    throw new IllegalArgumentException(
+		"Attempt to combine Packets with"
+		    + " a header packet specifying a different number of packets than"
+		    + " the number available!");
+	if (al > 1) {
+	    long m = pkts[0].bndlID;
+	    for (int i = 1; i < al; i++ ) {
+		if (pkts[i].bndlID != m)
+		    throw new IllegalArgumentException(
+			"Attempt to combine Packets with"
+			    + " differing bundle IDs!");
+		if (pkts[i].pktID != i)
+		    throw new IllegalArgumentException(
+			"Attempt to combine Packets with"
+			    + " nonsequential packet IDs!");
+		l += pkts[i].len;
+	    }
+	    rb = ByteBuffer.allocate(l);
+	    for (int i = 1; i < al; i++ ) {
+		rb.put(pkts[i].payload);
+	    }
+	    rb.rewind();
+	} else {
+	    rb = ByteBuffer.allocate(0);
+	}
+	return rb;
     }
 
     public int byteLength() {
-        return ( (payload == null) ? 0 : payload.length) + metaDataLength();
+	return ( (payload == null) ? 0 : payload.length) + metaDataLength();
     }
 
     ByteBuffer toByteBuffer() {
-        ByteBuffer rb = ByteBuffer.allocate(this.byteLength());
-        appendPacketHeader(rb);
-        if (payload != null) {
-            rb.put(payload);
-        }
-        rb.rewind();
-        return rb;
+	ByteBuffer rb = ByteBuffer.allocate(this.byteLength());
+	appendPacketHeader(rb);
+	if (payload != null) {
+	    rb.put(payload);
+	}
+	rb.rewind();
+	return rb;
     }
 
     /**
@@ -394,18 +401,18 @@ class Packet
      *         returned.
      */
     ByteBuffer appendToByteBuffer(ByteBuffer bb)
-        throws NullPointerException
+	throws NullPointerException
     {
-        int need = ( ( (payload == null) ? 0 : payload.length) + metaDataLength())
-            - bb.remaining();
-        ByteBuffer rb = null;
-        if (need > 0)
-            rb = ByteBuffer.allocate(need + bb.capacity()).put(bb);
-        else
-            rb = bb;
-        appendPacketHeader(rb);
-        rb.put(payload);
-        return rb;
+	int need = ( ( (payload == null) ? 0 : payload.length) + metaDataLength())
+	    - bb.remaining();
+	ByteBuffer rb = null;
+	if (need > 0)
+	    rb = ByteBuffer.allocate(need + bb.capacity()).put(bb);
+	else
+	    rb = bb;
+	appendPacketHeader(rb);
+	rb.put(payload);
+	return rb;
     }
 
     /**
@@ -422,12 +429,12 @@ class Packet
      * @return The length of this Packet's metadata.
      */
     protected int metaDataLength() {
-        // 4+8+8+4+2=26
-        return 26;
+	// 4+8+8+4+2=26
+	return 26;
     }
 
     public int minimumPacketLength() {
-        return HEARTBEAT_PACKET.metaDataLength();
+	return HEARTBEAT_PACKET.metaDataLength();
     }
 
     /**
@@ -445,50 +452,51 @@ class Packet
      *             room left to append the metadata.
      */
     protected void appendPacketHeader(final ByteBuffer bb)
-        throws NullPointerException, BufferOverflowException
+	throws NullPointerException, BufferOverflowException
     {
-        bb.putInt(PACKET_MAGIC_ID).putLong(genID).putLong(bndlID).putInt(
-            pktID).putShort(len);
+	bb.putInt(PACKET_MAGIC_ID).putLong(genID).putLong(bndlID).putInt(
+	    pktID).putShort(len);
     }
 
     static Packet valueOf(ByteBuffer buf)
-        throws IllegalArgumentException, BufferUnderflowException
+	throws IllegalArgumentException, BufferUnderflowException
     {
-        long g, m;
-        int p;
-        short l;
-        byte[] b;
-        Packet rp = null;
-        /*
-         * if (buf.remaining() < HEARTBEAT_PACKET .minimumPacketLength()) {
-         * System.err.println("Oooops!"); }
-         */
-        if (buf != null
-            && buf.remaining() >= HEARTBEAT_PACKET.minimumPacketLength())
-        {
-            ByteBuffer bb = buf.asReadOnlyBuffer();
-            // parse it
-            try {
-                if (bb.getInt() == PACKET_MAGIC_ID) {
-                    g = bb.getLong();
-                    m = bb.getLong();
-                    p = bb.getInt();
-                    l = bb.getShort();
-                    b = ( (l < 1) || (p == 0)) ? null : new byte[l];
-                    rp = newPacket(g, m, p, l, b);
-                    rp.readMetaData(bb);
-                    if ( (rp.payload != null) && (rp.payload.length > 0)) {
-                        bb.get(rp.payload);
-                    }
-                }
-            } catch (BufferUnderflowException e) {
-                rp = null;
-            }
-            if (rp != null) {
-                buf.position(bb.position());
-            }
-        }
-        return rp;
+	long g, m;
+	int p;
+	short l;
+	byte[] b;
+	Packet rp = null;
+	/*
+	 * if (buf.remaining() < HEARTBEAT_PACKET .minimumPacketLength()) {
+	 * System.err.println("Oooops!"); }
+	 */
+	if (buf != null
+	    && buf.remaining() >= HEARTBEAT_PACKET.minimumPacketLength())
+	{
+	    ByteBuffer bb = buf.asReadOnlyBuffer();
+	    // parse it
+	    try {
+		if (bb.getInt() == PACKET_MAGIC_ID) {
+		    g = bb.getLong();
+		    m = bb.getLong();
+		    p = bb.getInt();
+		    l = bb.getShort();
+		    b = ( (l < 1) || (p == 0)) ? null : new byte[l];
+		    rp = newPacket(g, m, p, l, b);
+		    rp.readMetaData(bb);
+		    if ( (rp.payload != null) && (rp.payload.length > 0)) {
+			bb.get(rp.payload);
+		    }
+		    System.err.println("Got buffer valueOf "+rp);
+		}
+	    } catch (BufferUnderflowException e) {
+		rp = null;
+	    }
+	    if (rp != null) {
+		buf.position(bb.position());
+	    }
+	}
+	return rp;
     }
 
     /**
@@ -507,7 +515,7 @@ class Packet
      *             enough data to read.
      */
     protected void readMetaData(ByteBuffer b)
-        throws NullPointerException, BufferUnderflowException
+	throws NullPointerException, BufferUnderflowException
     {}
 
 }

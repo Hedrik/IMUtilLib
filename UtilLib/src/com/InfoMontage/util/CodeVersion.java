@@ -71,8 +71,8 @@ public final class CodeVersion {
      * {@link com.InfoMontage.version.CodeVersion CodeVersion}of this utility
      * class.
      */
-    public static com.InfoMontage.version.CodeVersion implCodeVersion = new GenericCodeVersion(
-        "0.5");
+    public static com.InfoMontage.version.CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
+    .codeVersionFromCVSRevisionString("$Revision$");
 
     /**
      * Prevents instantiation of a utility CodeVersion object. This utility
@@ -114,210 +114,210 @@ public final class CodeVersion {
      *      com.InfoMontage.version.CodeVersion
      */
     public static final com.InfoMontage.version.CodeVersion getInterfaceVersion(
-        Object obj, String iface) throws IllegalAccessException
+	Object obj, String iface) throws IllegalAccessException
     {
-        return getInterfaceVersion(obj, iface,
-            DEFAULT_INTERFACE_VERSION_CONSTANT_NAME);
+	return getInterfaceVersion(obj, iface,
+	    DEFAULT_INTERFACE_VERSION_CONSTANT_NAME);
     }
 
     public static final com.InfoMontage.version.CodeVersion getInterfaceVersion(
-        Object obj, String iface, String versFldName)
-        throws IllegalAccessException
+	Object obj, String iface, String versFldName)
+	throws IllegalAccessException
     {
-        com.InfoMontage.version.CodeVersion rcv = null;
-        if (obj != null) {
-            Class c;
-            if (Class.class.isInstance(obj))
-                c = (Class) obj;
-            else
-                c = obj.getClass();
-            if (c != Object.class && c != Class.class) {
-                String f = "." + iface;
-                if (c.getName().endsWith(f))
-                    if (c.isInterface())
-                        rcv = getCodeVersionFromClass(c, versFldName);
-                    else
-                        throw new ClassCastException("Class '" + iface
-                            + "' is not an interface!");
-                if (rcv == null) {
-                    Class[] ca = c.getInterfaces();
-                    if (ca != null) {
-                        boolean found = false;
-                        for (int i = 0; i < ca.length && !found; i++ ) {
-                            if (ca[i].getName().endsWith(f))
-                                rcv = getCodeVersionFromClass(ca[i],
-                                    versFldName);
-                            if (rcv != null)
-                                found = true;
-                            else {
-                                rcv = getInterfaceVersion(ca[i], iface,
-                                    versFldName);
-                                if (rcv != GenericCodeVersion.NULL_CODE_VERSION)
-                                    found = true;
-                            }
-                        }
-                    }
-                }
-                // now check the interfaces of the rest of the class hierarchy
-                if (rcv == null) {
-                    rcv = getInterfaceVersion(c.getSuperclass(), iface,
-                        versFldName);
-                }
-            }
-        }
-        if (rcv == null)
-            rcv = GenericCodeVersion.NULL_CODE_VERSION;
-        return rcv;
+	com.InfoMontage.version.CodeVersion rcv = null;
+	if (obj != null) {
+	    Class c;
+	    if (Class.class.isInstance(obj))
+		c = (Class) obj;
+	    else
+		c = obj.getClass();
+	    if (c != Object.class && c != Class.class) {
+		String f = "." + iface;
+		if (c.getName().endsWith(f))
+		    if (c.isInterface())
+			rcv = getCodeVersionFromClass(c, versFldName);
+		    else
+			throw new ClassCastException("Class '" + iface
+			    + "' is not an interface!");
+		if (rcv == null) {
+		    Class[] ca = c.getInterfaces();
+		    if (ca != null) {
+			boolean found = false;
+			for (int i = 0; i < ca.length && !found; i++ ) {
+			    if (ca[i].getName().endsWith(f))
+				rcv = getCodeVersionFromClass(ca[i],
+				    versFldName);
+			    if (rcv != null)
+				found = true;
+			    else {
+				rcv = getInterfaceVersion(ca[i], iface,
+				    versFldName);
+				if (rcv != GenericCodeVersion.NULL_CODE_VERSION)
+				    found = true;
+			    }
+			}
+		    }
+		}
+		// now check the interfaces of the rest of the class hierarchy
+		if (rcv == null) {
+		    rcv = getInterfaceVersion(c.getSuperclass(), iface,
+			versFldName);
+		}
+	    }
+	}
+	if (rcv == null)
+	    rcv = GenericCodeVersion.NULL_CODE_VERSION;
+	return rcv;
     }
 
     public static final com.InfoMontage.version.CodeVersion getImplVersion(
-        Object obj, String impl) throws IllegalAccessException
+	Object obj, String impl) throws IllegalAccessException
     {
-        return getImplVersion(obj, impl, DEFAULT_IMPL_VERSION_VARIABLE_NAME);
+	return getImplVersion(obj, impl, DEFAULT_IMPL_VERSION_VARIABLE_NAME);
     }
 
     public static final com.InfoMontage.version.CodeVersion getImplVersion(
-        Object obj, String impl, String versFldName)
-        throws IllegalAccessException
+	Object obj, String impl, String versFldName)
+	throws IllegalAccessException
     {
-        com.InfoMontage.version.CodeVersion rcv = null;
-        if (obj != null) {
-            Class c;
-            String f = "." + impl;
-            if (Class.class.isInstance(obj))
-                c = (Class) obj;
-            else
-                c = obj.getClass();
-            if (c != Object.class && c != Class.class) {
-                if (c.getName().endsWith(f))
-                    if (!c.isInterface())
-                        rcv = getCodeVersionFromClass(c, versFldName);
-                    else
-                        throw new ClassCastException("Class '" + impl
-                            + "' is an interface!");
-                if (rcv == null) {
-                    rcv = getImplVersion(c.getSuperclass(), impl,
-                        versFldName);
-                }
-            }
-            // Having checked the entire class hierarchy, we now verify that
-            // it's not an interface...
-            if (rcv == null || rcv == GenericCodeVersion.NULL_CODE_VERSION)
-            {
-                Class[] ca = c.getInterfaces();
-                if (ca != null) {
-                    boolean found = false;
-                    for (int i = 0; i < ca.length && !found; i++ ) {
-                        rcv = getImplVersion(ca[i], impl, versFldName);
-                        if (rcv != GenericCodeVersion.NULL_CODE_VERSION)
-                            // this should never happen - should have
-                            // thrown an exception earlier
-                            throw new ClassCastException("Class '" + impl
-                                + "' is an interface!");
-                    }
-                }
-            }
-        }
-        if (rcv == null)
-            rcv = GenericCodeVersion.NULL_CODE_VERSION;
-        return rcv;
+	com.InfoMontage.version.CodeVersion rcv = null;
+	if (obj != null) {
+	    Class c;
+	    String f = "." + impl;
+	    if (Class.class.isInstance(obj))
+		c = (Class) obj;
+	    else
+		c = obj.getClass();
+	    if (c != Object.class && c != Class.class) {
+		if (c.getName().endsWith(f))
+		    if (!c.isInterface())
+			rcv = getCodeVersionFromClass(c, versFldName);
+		    else
+			throw new ClassCastException("Class '" + impl
+			    + "' is an interface!");
+		if (rcv == null) {
+		    rcv = getImplVersion(c.getSuperclass(), impl,
+			versFldName);
+		}
+	    }
+	    // Having checked the entire class hierarchy, we now verify that
+	    // it's not an interface...
+	    if (rcv == null || rcv == GenericCodeVersion.NULL_CODE_VERSION)
+	    {
+		Class[] ca = c.getInterfaces();
+		if (ca != null) {
+		    boolean found = false;
+		    for (int i = 0; i < ca.length && !found; i++ ) {
+			rcv = getImplVersion(ca[i], impl, versFldName);
+			if (rcv != GenericCodeVersion.NULL_CODE_VERSION)
+			    // this should never happen - should have
+			    // thrown an exception earlier
+			    throw new ClassCastException("Class '" + impl
+				+ "' is an interface!");
+		    }
+		}
+	    }
+	}
+	if (rcv == null)
+	    rcv = GenericCodeVersion.NULL_CODE_VERSION;
+	return rcv;
     }
 
     public static final com.InfoMontage.version.CodeVersion getVersion(
-        Object obj, String cls) throws IllegalAccessException
+	Object obj, String cls) throws IllegalAccessException
     {
-        return getVersion(obj, cls, DEFAULT_IMPL_VERSION_VARIABLE_NAME,
-            DEFAULT_INTERFACE_VERSION_CONSTANT_NAME);
+	return getVersion(obj, cls, DEFAULT_IMPL_VERSION_VARIABLE_NAME,
+	    DEFAULT_INTERFACE_VERSION_CONSTANT_NAME);
     }
 
     public static final com.InfoMontage.version.CodeVersion getVersion(
-        Object obj, String cls, String implVersFldName,
-        String ifaceVersFldName) throws IllegalAccessException
+	Object obj, String cls, String implVersFldName,
+	String ifaceVersFldName) throws IllegalAccessException
     {
-        com.InfoMontage.version.CodeVersion rcv = null;
-        if (obj != null) {
-            Class c;
-            String f = "." + cls;
-            if (Class.class.isInstance(obj))
-                c = (Class) obj;
-            else
-                c = obj.getClass();
-            if (c != Object.class && c != Class.class) {
-                if (c.getName().endsWith(f))
-                    if (c.isInterface())
-                        rcv = getCodeVersionFromClass(c, ifaceVersFldName);
-                    else
-                        rcv = getCodeVersionFromClass(c, implVersFldName);
-                // now check the interface hierarchy...
-                if (rcv == null) {
-                    Class[] ca = c.getInterfaces();
-                    if (ca != null) {
-                        boolean found = false;
-                        for (int i = 0; i < ca.length && !found; i++ ) {
-                            if (ca[i].getName().endsWith(f))
-                                rcv = getCodeVersionFromClass(ca[i],
-                                    ifaceVersFldName);
-                            if (rcv != null)
-                                found = true;
-                            else {
-                                rcv = getInterfaceVersion(ca[i], cls,
-                                    ifaceVersFldName);
-                                if (rcv != GenericCodeVersion.NULL_CODE_VERSION)
-                                    found = true;
-                            }
-                        }
-                    }
-                }
-                // now check the rest of the class hierarchy...
-                if (rcv == null) {
-                    rcv = getVersion(c.getSuperclass(), cls,
-                        implVersFldName, ifaceVersFldName);
-                }
-            }
-        }
-        if (rcv == null)
-            rcv = GenericCodeVersion.NULL_CODE_VERSION;
-        return rcv;
+	com.InfoMontage.version.CodeVersion rcv = null;
+	if (obj != null) {
+	    Class c;
+	    String f = "." + cls;
+	    if (Class.class.isInstance(obj))
+		c = (Class) obj;
+	    else
+		c = obj.getClass();
+	    if (c != Object.class && c != Class.class) {
+		if (c.getName().endsWith(f))
+		    if (c.isInterface())
+			rcv = getCodeVersionFromClass(c, ifaceVersFldName);
+		    else
+			rcv = getCodeVersionFromClass(c, implVersFldName);
+		// now check the interface hierarchy...
+		if (rcv == null) {
+		    Class[] ca = c.getInterfaces();
+		    if (ca != null) {
+			boolean found = false;
+			for (int i = 0; i < ca.length && !found; i++ ) {
+			    if (ca[i].getName().endsWith(f))
+				rcv = getCodeVersionFromClass(ca[i],
+				    ifaceVersFldName);
+			    if (rcv != null)
+				found = true;
+			    else {
+				rcv = getInterfaceVersion(ca[i], cls,
+				    ifaceVersFldName);
+				if (rcv != GenericCodeVersion.NULL_CODE_VERSION)
+				    found = true;
+			    }
+			}
+		    }
+		}
+		// now check the rest of the class hierarchy...
+		if (rcv == null) {
+		    rcv = getVersion(c.getSuperclass(), cls,
+			implVersFldName, ifaceVersFldName);
+		}
+	    }
+	}
+	if (rcv == null)
+	    rcv = GenericCodeVersion.NULL_CODE_VERSION;
+	return rcv;
     }
 
     private static final com.InfoMontage.version.CodeVersion getCodeVersionFromClass(
-        Class c, String n) throws IllegalAccessException
+	Class c, String n) throws IllegalAccessException
     {
-        com.InfoMontage.version.CodeVersion cv = null;
-        java.lang.reflect.Field fld = null;
-        System.err.println("Checking class '" + c + "' for '" + n + "'");
-        try {
-            fld = c.getDeclaredField(n);
-            if (com.InfoMontage.version.CodeVersion.class
-                .isAssignableFrom(fld.getType())
-                && java.lang.reflect.Modifier.isStatic(fld.getModifiers()))
-                // since Field.get(Object) ignores Object for
-                // static fields, we pass in null
-                cv = (com.InfoMontage.version.CodeVersion) fld.get(null);
-        } catch (NoSuchFieldException e) {} catch (IllegalAccessException e)
-        {
-            throw (IllegalAccessException) new IllegalAccessException(
-                "Cannot access static field '" + fld.getName()
-                    + "' of class '" + c.getName() + "'!").initCause(e);
-        }
-        return cv;
+	com.InfoMontage.version.CodeVersion cv = null;
+	java.lang.reflect.Field fld = null;
+	System.err.println("Checking class '" + c + "' for '" + n + "'");
+	try {
+	    fld = c.getDeclaredField(n);
+	    if (com.InfoMontage.version.CodeVersion.class
+		.isAssignableFrom(fld.getType())
+		&& java.lang.reflect.Modifier.isStatic(fld.getModifiers()))
+		// since Field.get(Object) ignores Object for
+		// static fields, we pass in null
+		cv = (com.InfoMontage.version.CodeVersion) fld.get(null);
+	} catch (NoSuchFieldException e) {} catch (IllegalAccessException e)
+	{
+	    throw (IllegalAccessException) new IllegalAccessException(
+		"Cannot access static field '" + fld.getName()
+		    + "' of class '" + c.getName() + "'!").initCause(e);
+	}
+	return cv;
     }
 
     public static final boolean hasVersion(Class c) {
-        // placeholder
-        return false;
+	// placeholder
+	return false;
     }
 
     public static final boolean hasVersion(String cls)
-        throws ClassNotFoundException
+	throws ClassNotFoundException
     {
-        // placeholder
-        return false;
+	// placeholder
+	return false;
     }
 
     public static final boolean hasVersion(Object obj) {
-        // placeholder
-        return false;
+	// placeholder
+	return false;
     }
 
 }

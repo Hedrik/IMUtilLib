@@ -40,21 +40,21 @@ import com.InfoMontage.version.CodeVersion;
 public final class TaskExecutor extends Thread {
 
     /**
-         * Logger for this class
-         */
+	 * Logger for this class
+	 */
     private static final AssertableLogger log = new AssertableLogger(
 	    TaskExecutor.class.getName());
 
     /**
-         * Implementation file version. By convention, for use with
-         * {@link com.InfoMontage.util.CodeVersion} methods, implementation
-         * versions are kept in a public static field named
-         * <code>implCodeVersion</code>.
-         * 
-         * @see com.InfoMontage.util.CodeVersion
-         *      com.InfoMontage.version.CodeVersion
-         *      com.InfoMontage.version.GenericCodeVersion
-         */
+	 * Implementation file version. By convention, for use with
+	 * {@link com.InfoMontage.util.CodeVersion} methods, implementation
+	 * versions are kept in a public static field named
+	 * <code>implCodeVersion</code>.
+	 *
+	 * @see com.InfoMontage.util.CodeVersion
+	 *      com.InfoMontage.version.CodeVersion
+	 *      com.InfoMontage.version.GenericCodeVersion
+	 */
     public static final CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
 	    .codeVersionFromCVSRevisionString("$Revision$");
 
@@ -138,7 +138,7 @@ public final class TaskExecutor extends Thread {
 	    assert (log.gettingLock(this.waiting));
 	    synchronized (this.waiting) {
 		assert (log.gotLock(this.waiting));
-		this.waiting.notify();
+		this.waiting.notifyAll();
 		assert (log.releasedLock(this.waiting));
 	    }
 	    while (this.isWaiting()) {
@@ -167,12 +167,12 @@ public final class TaskExecutor extends Thread {
     }
 
     /**
-         * The run method
-         * 
-         * @throws IllegalStateException
-         *                 if called when already running.
-         * @see java.lang.Thread#run()
-         */
+	 * The run method
+	 *
+	 * @throws IllegalStateException
+	 *                 if called when already running.
+	 * @see java.lang.Thread#run()
+	 */
     public void run() throws IllegalStateException {
 	assert (log.entering("start of method"));
 
@@ -201,7 +201,7 @@ public final class TaskExecutor extends Thread {
 	    assert (log.gettingLock(validExecutor));
 	    synchronized (validExecutor) {
 		assert (log.gotLock(validExecutor));
-		validExecutor.notify();
+		validExecutor.notifyAll();
 		assert (log.releasedLock(validExecutor));
 	    }
 	    if (myTask != null) {
@@ -221,7 +221,12 @@ public final class TaskExecutor extends Thread {
 	assert (log.entering("start of method"));
 
 	running.setState(false);
-	waiting.notify();
+	assert (log.gettingLock(waiting));
+	synchronized (waiting) {
+	    assert (log.gotLock(waiting));
+	    waiting.notifyAll();
+	    assert (log.releasedLock(validExecutor));
+	}
 
 	assert (log.exiting("end of method"));
     }

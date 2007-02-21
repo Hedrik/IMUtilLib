@@ -40,6 +40,7 @@ import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.channels.ByteChannel;
+import java.nio.channels.NotYetConnectedException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.nio.charset.Charset;
@@ -78,80 +79,80 @@ import com.InfoMontage.version.CodeVersion;
 public final class Conduit extends AbstractSelectableChannel {
 
     /**
-         * {@link Logger}for this class.
-         */
+	 * {@link Logger}for this class.
+	 */
     private static final AssertableLogger log = new AssertableLogger(
 	    Conduit.class.getName());
 
     /**
-         * Code version for the Conduit class. Determined from CVS file
-         * revision.
-         */
+	 * Code version for the Conduit class. Determined from CVS file
+	 * revision.
+	 */
     public static CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
 	    .codeVersionFromCVSRevisionString("$Revision$");
 
     /**
-         * Collection of all instantiated Conduits.
-         */
+	 * Collection of all instantiated Conduits.
+	 */
     protected static List conduits = new Vector();
 
     /**
-         * An internal object used for synchronization of access to the
-         * collection of instantiated Conduits and it's index variable.
-         */
+	 * An internal object used for synchronization of access to the
+	 * collection of instantiated Conduits and it's index variable.
+	 */
     protected static final Object lockForNextConduitToCheck = new Object();
 
     /**
-         * An index into the collection of instantiated Conduits.
-         */
+	 * An index into the collection of instantiated Conduits.
+	 */
     protected static int nextConduitToCheck = 0;
 
-    protected BooleanState beingProcessed = new BooleanState(false);
+    protected volatile BooleanState beingProcessed = new BooleanState(false);
 
     /**
-         * Maximum number of {@link Thread}s allocated for receiving data from
-         * all Sockets.
-         */
+	 * Maximum number of {@link Thread}s allocated for receiving data from
+	 * all Sockets.
+	 */
     private static final int MAX_RECEIVER_TASK_THREADS = 4;
 
     /**
-         * Array of {@link Task}s used by the receiver threads.
-         */
+	 * Array of {@link Task}s used by the receiver threads.
+	 */
     protected static final ReceiverTask RECEIVE_TASKS[] = new ReceiverTask[MAX_RECEIVER_TASK_THREADS];
 
     /**
-         * The pool of {@link TaskExecutor}s used to process ReceiverTasks.
-         */
+	 * The pool of {@link TaskExecutor}s used to process ReceiverTasks.
+	 */
     protected static final TaskExecutorPool RECEIVER_TASK_FACTORY = TaskExecutorPool
 	    .getPool("ConduitReceivers", 1, MAX_RECEIVER_TASK_THREADS, false);
 
     /**
-         * Master {@link Thread}monitoring all instantiated Conduits for
-         * available data.
-         * 
-         * @author Richard A. Mead <BR>
-         *         Information Montage
-         */
+	 * Master {@link Thread}monitoring all instantiated Conduits for
+	 * available data.
+	 *
+	 * @author Richard A. Mead <BR>
+	 *         Information Montage
+	 */
     private static class ConduitMonitorThread extends Thread {
 
 	/**
-         * {@link Logger}for this class.
-         */
+	 * {@link Logger}for this class.
+	 */
 	private static final AssertableLogger log = new AssertableLogger(
 		ConduitMonitorThread.class.getName());
 
 	/**
-         * The constructor names the thread.
-         */
+	 * The constructor names the thread.
+	 */
 	private ConduitMonitorThread() {
 	    super("Conduit monitor");
 	}
 
 	/**
-         * Monitoring code lives here.
-         * 
-         * @see java.lang.Thread#run()
-         */
+	 * Monitoring code lives here.
+	 *
+	 * @see java.lang.Thread#run()
+	 */
 	public void run() {
 	    int i;
 	    assert (log.info("Conduit monitoring thread starting."));
@@ -236,34 +237,34 @@ public final class Conduit extends AbstractSelectableChannel {
     }
 
     /**
-         * The instantiation of the master monitor {@link Thread}.
-         */
+	 * The instantiation of the master monitor {@link Thread}.
+	 */
     private static final ConduitMonitorThread cmt = new ConduitMonitorThread();
     static {
 	cmt.start();
     }
 
     /**
-         * The {@link Task}used to receive data.
-         * 
-         * @author Richard A. Mead <BR>
-         *         Information Montage
-         */
+	 * The {@link Task}used to receive data.
+	 *
+	 * @author Richard A. Mead <BR>
+	 *         Information Montage
+	 */
     public static class ReceiverTask implements Task {
 
 	/**
-         * {@link Logger}for this class.
-         */
+	 * {@link Logger}for this class.
+	 */
 	private static final AssertableLogger log = new AssertableLogger(
 		ReceiverTask.class.getName());
 
 	private Object[] params;
 
 	/**
-         * Parameter validation routine for ReceiverTasks.
-         * 
-         * @see com.InfoMontage.task.ExecutableTask#validateParameters(java.lang.Object[])
-         */
+	 * Parameter validation routine for ReceiverTasks.
+	 *
+	 * @see com.InfoMontage.task.ExecutableTask#validateParameters(java.lang.Object[])
+	 */
 	public Exception validateParameters(Object[] pa) {
 	    Exception retVal = null;
 	    Conduit c = null;
@@ -288,10 +289,10 @@ public final class Conduit extends AbstractSelectableChannel {
 	}
 
 	/**
-         * The actual work of receiving data is done here.
-         * 
-         * @see com.InfoMontage.task.ExecutableTask#doTask()
-         */
+	 * The actual work of receiving data is done here.
+	 *
+	 * @see com.InfoMontage.task.ExecutableTask#doTask()
+	 */
 	public void doTask() {
 	    Iterator i;
 	    Conduit c;
@@ -322,65 +323,65 @@ public final class Conduit extends AbstractSelectableChannel {
 	}
 
 	/*
-         * (non-Javadoc)
-         * 
-         * @see com.InfoMontage.task.Task#clearTaskParameters()
-         */
+	 * (non-Javadoc)
+	 *
+	 * @see com.InfoMontage.task.Task#clearTaskParameters()
+	 */
 	public void clearParameters() throws IllegalStateException {
 	    this.params = null;
 	}
 
 	/*
-         * (non-Javadoc)
-         * 
-         * @see com.InfoMontage.task.Task#isProcessing()
-         */
+	 * (non-Javadoc)
+	 *
+	 * @see com.InfoMontage.task.Task#isProcessing()
+	 */
 	public boolean isProcessing() {
 	    return (this.params == null) ? false
 		    : ((Conduit) (this.params[0])).beingProcessed.getState();
 	}
 
 	/*
-         * (non-Javadoc)
-         * 
-         * @see com.InfoMontage.task.Task#percentComplete()
-         */
+	 * (non-Javadoc)
+	 *
+	 * @see com.InfoMontage.task.Task#percentComplete()
+	 */
 	public float percentComplete() {
 	    return (this.isProcessing()) ? 0 : 1;
 	}
 
 	/*
-         * (non-Javadoc)
-         * 
-         * @see com.InfoMontage.task.Task#setTaskParameters(java.lang.Object[])
-         */
+	 * (non-Javadoc)
+	 *
+	 * @see com.InfoMontage.task.Task#setTaskParameters(java.lang.Object[])
+	 */
 	public void setParameters(Object[] pa) throws IllegalArgumentException {
 	    this.params = pa;
 	}
 
 	/*
-         * (non-Javadoc)
-         * 
-         * @see com.InfoMontage.task.Task#getResults()
-         */
+	 * (non-Javadoc)
+	 *
+	 * @see com.InfoMontage.task.Task#getResults()
+	 */
 	public Object[] getResults() throws IllegalStateException {
 	    return null;
 	}
     }
 
     /**
-         * The size of the buffer used for getting raw data from a
-         * {@link Socket}.
-         */
-    private static int recvBufSize;
+	 * The size of the buffer used for getting raw data from a
+	 * {@link Socket}.
+	 */
+    private static int recvBufSize = 0;
 
     /**
-         * The size of the buffer used for sending raw data to a {@link Socket}.
-         */
-    private static int sendBufSize;
+	 * The size of the buffer used for sending raw data to a {@link Socket}.
+	 */
+    private static int sendBufSize = 0;
     /**
-         * Determine buffer sizes to use for raw data to/from {@link Socket}s.
-         */
+	 * Determine buffer sizes to use for raw data to/from {@link Socket}s.
+	 */
     static {
 	try {
 	    Socket s = new Socket();
@@ -398,105 +399,107 @@ public final class Conduit extends AbstractSelectableChannel {
     }
 
     /**
-         * The current size of a {@link Packet}'s payload.
-         */
-    private transient Short currPacketSize = new Short((short) 0);
+	 * The current size of a {@link Packet}'s payload.
+	 */
+    private volatile transient Short currPacketSize = new Short((short) 0);
 
     /**
-         * A holding place for the {@link SelectableChannel}interface into this
-         * Conduit's {@link Socket}.
-         */
-    private transient SelectableChannel channel = null;
+	 * A holding place for the {@link SelectableChannel}interface into this
+	 * Conduit's {@link Socket}.
+	 */
+    private volatile transient SelectableChannel channel = null;
 
     /**
-         * A holding place for the {@link ByteChannel}interface into this
-         * Conduit's {@link Socket}.
-         */
-    private transient ByteChannel byteChannel = null;
+	 * A holding place for the {@link ByteChannel}interface into this
+	 * Conduit's {@link Socket}.
+	 */
+    private volatile transient ByteChannel byteChannel = null;
 
     /**
-         * The {@link Charset}being used with this Conduit.
-         */
-    private transient Charset charSet = null;
+	 * The {@link Charset}being used with this Conduit.
+	 */
+    private volatile transient Charset charSet = null;
 
     /**
-         * The current {@link PacketFactory}for this conduit.
-         */
-    private transient PacketFactory packetFactory = null;
+	 * The current {@link PacketFactory}for this conduit.
+	 */
+    private volatile transient PacketFactory packetFactory = null;
 
-    private transient ByteBuffer recvBuf = null;
+    private volatile transient ByteBuffer recvBuf = null;
 
-    private transient ByteBuffer sendBuf = null;
+    private volatile transient ByteBuffer sendBuf = null;
 
-    private transient ByteBuffer recvReadBuf = null;
+    private volatile transient ByteBuffer recvReadBuf = null;
 
-    private transient Vector readBufs = null;
+    private volatile transient Vector readBufs = null;
 
-    private transient byte[] bytesRecvd = null;
-
-    /**
-         * A queue of bundles awaiting completion or acknowledgement. As bundle
-         * {@link Packet}s are received, they are accumulated in an array which
-         * is stored in this queue. Once all of a particular bundle's
-         * {@link Packet}s have been received, the bundle is acknowledged. Once
-         * the acknowledgement has been received by the sender, the bundle
-         * becomes available for processing and is no longer available for a
-         * resend request.
-         */
-    private transient Map inBndlQueues = new Hashtable(7, 0.86f);
+    private volatile transient byte[] bytesRecvd = null;
 
     /**
-         * A queue of bundles awaiting acknowledgement. When a bundle is sent,
-         * it is stored in this queue until an acknowledgement of receipt is
-         * sent back. Once the acknowledgement has been received, the bundle is
-         * removed from this queue. If there is a timeout, or if the receiver
-         * requests it, the bundle can be resent.
-         */
-    private transient Map outBndlQueues = new Hashtable(7, 0.86f);
+	 * A queue of bundles awaiting completion or acknowledgement. As bundle
+	 * {@link Packet}s are received, they are accumulated in an array which
+	 * is stored in this queue. Once all of a particular bundle's
+	 * {@link Packet}s have been received, the bundle is acknowledged. Once
+	 * the acknowledgement has been received by the sender, the bundle
+	 * becomes available for processing and is no longer available for a
+	 * resend request.
+	 */
+    private volatile transient Map inBndlQueues = new Hashtable(7, 0.86f);
 
     /**
-         * Number of bytes sent over this Conduit.
-         */
-    private transient BigCounter numBytesSent = new BigCounter();
+	 * A queue of bundles awaiting acknowledgement. When a bundle is sent,
+	 * it is stored in this queue until an acknowledgement of receipt is
+	 * sent back. Once the acknowledgement has been received, the bundle is
+	 * removed from this queue. If there is a timeout, or if the receiver
+	 * requests it, the bundle can be resent.
+	 */
+    private volatile transient Map outBndlQueues = new Hashtable(7, 0.86f);
 
     /**
-         * Number of bytes received over this Conduit.
-         */
-    private transient BigCounter numBytesRcvd = new BigCounter();
+	 * Number of bytes sent over this Conduit.
+	 */
+    private volatile transient BigCounter numBytesSent = new BigCounter();
 
     /**
-         * Number of {@link Packet}s sent over this Conduit.
-         */
-    private transient BigCounter numPktsSent = new BigCounter();
+	 * Number of bytes received over this Conduit.
+	 */
+    private volatile transient BigCounter numBytesRcvd = new BigCounter();
 
     /**
-         * Number of {@link Packet}s received over this Conduit.
-         */
-    private transient BigCounter numPktsRcvd = new BigCounter();
+	 * Number of {@link Packet}s sent over this Conduit.
+	 */
+    private volatile transient BigCounter numPktsSent = new BigCounter();
 
     /**
-         * Number of bundles of {@link Packet}s sent over this Conduit.
-         */
-    private transient BigCounter numBundlesSent = new BigCounter();
+	 * Number of {@link Packet}s received over this Conduit.
+	 */
+    private volatile transient BigCounter numPktsRcvd = new BigCounter();
 
     /**
-         * Number of bundles of {@link Packet}s received over this Conduit.
-         */
-    private transient BigCounter numBundlesRcvd = new BigCounter();
+	 * Number of bundles of {@link Packet}s sent over this Conduit.
+	 */
+    private volatile transient BigCounter numBundlesSent = new BigCounter();
+
+    /**
+	 * Number of bundles of {@link Packet}s received over this Conduit.
+	 */
+    private volatile transient BigCounter numBundlesRcvd = new BigCounter();
 
     private final static long DEFAULT_EXPECTED_PACKET_LAG_MS = 500;
 
-    transient long expectedPacketLagMs = DEFAULT_EXPECTED_PACKET_LAG_MS;
+    volatile transient long expectedPacketLagMs = DEFAULT_EXPECTED_PACKET_LAG_MS;
 
     private final static int NUM_PACKET_RECV_TIMES = 5; // Must
 
     // be
     // >1
-    private transient long[] lastPacketRecvTimes;
+    private volatile transient long[] lastPacketRecvTimes;
 
-    private transient long recvTimesSum;
+    private volatile transient long recvTimesSum = 0;
 
-    transient long expectedPacketLagMsDelta;
+    private volatile transient long recvTimeDivisor = 0;
+
+    volatile transient long expectedPacketLagMsDelta = 0;
 
     private final static int LAG_TIMEOUT_MULTIPLE = 3;
 
@@ -504,46 +507,46 @@ public final class Conduit extends AbstractSelectableChannel {
 
     private final static int MIN_LAG_BEFORE_EXCEPTION = 30 * 1000;
 
-    private transient int numTimeouts = 0;
+    private volatile transient int numTimeouts = 0;
 
     /**
-         * Current generation number for this Conduit's {@link Packet}s.
-         */
-    private transient Long currGen = new Long(1);
+	 * Current generation number for this Conduit's {@link Packet}s.
+	 */
+    private volatile transient Long currGen = new Long(1);
 
     /**
-         * Current bundle number for this Conduit's {@link Packet}s.
-         */
-    private transient Long currBndl = new Long(1);
+	 * Current bundle number for this Conduit's {@link Packet}s.
+	 */
+    private volatile transient Long currBndl = new Long(1);
 
     /**
-         * An immutable key used to reference bundles of {@link Packet}s in a
-         * bundle ({@link Packet}bundle) queue.
-         * 
-         * @author Richard A. Mead <BR>
-         *         Information Montage
-         */
+	 * An immutable key used to reference bundles of {@link Packet}s in a
+	 * bundle ({@link Packet}bundle) queue.
+	 *
+	 * @author Richard A. Mead <BR>
+	 *         Information Montage
+	 */
     private static class BndlQKey {
 
 	/**
-         * {@link Logger}for this class
-         */
+	 * {@link Logger}for this class
+	 */
 	private static final AssertableLogger log = new AssertableLogger(
 		BndlQKey.class.getName());
 
 	/**
-         * The generation number of the {@link Packet}s.
-         */
+	 * The generation number of the {@link Packet}s.
+	 */
 	transient final long GENERATION_ID;
 
 	/**
-         * The bundle number of the {@link Packet}s.
-         */
+	 * The bundle number of the {@link Packet}s.
+	 */
 	transient final long BNDL_ID;
 
 	/**
-         * The cached hashcode value for this key.
-         */
+	 * The cached hashcode value for this key.
+	 */
 	private transient final int HASH_CODE;
 
 	private BndlQKey(long g, long b) {
@@ -576,30 +579,30 @@ public final class Conduit extends AbstractSelectableChannel {
     }
 
     /**
-         * The value class corresponding to the BndlQKey class for bundle
-         * queues. The value is an array of {@link Packet}s, as well as some
-         * bundle state information.
-         * 
-         * @author Richard A. Mead <BR>
-         *         Information Montage
-         */
+	 * The value class corresponding to the BndlQKey class for bundle
+	 * queues. The value is an array of {@link Packet}s, as well as some
+	 * bundle state information.
+	 *
+	 * @author Richard A. Mead <BR>
+	 *         Information Montage
+	 */
     private static class BndlQValue {
 
 	/**
-         * {@link Logger}for this class
-         */
+	 * {@link Logger}for this class
+	 */
 	private static final AssertableLogger log = new AssertableLogger(
 		BndlQValue.class.getName());
 
 	/**
-         * The array of {@link Packet}s containing the bundle.
-         */
+	 * The array of {@link Packet}s containing the bundle.
+	 */
 	transient ArrayList packets;
 
 	/**
-         * The number of {@link Packet}s in the bundle that have not yet been
-         * received.
-         */
+	 * The number of {@link Packet}s in the bundle that have not yet been
+	 * received.
+	 */
 	transient long packetsLeftToRecv = 0;
 
 	transient long expectedCompletion;
@@ -613,16 +616,16 @@ public final class Conduit extends AbstractSelectableChannel {
 	    setExpectedCompletion();
 	}
 
-	void setExpectedCompletion() {
+	final void setExpectedCompletion() {
 	    setExpectedCompletion(DEFAULT_EXPECTED_PACKET_LAG_MS,
 		    this.packetsLeftToRecv);
 	}
 
-	void setExpectedCompletion(long expectedPacketDelayMs) {
+	final void setExpectedCompletion(long expectedPacketDelayMs) {
 	    setExpectedCompletion(expectedPacketDelayMs, this.packetsLeftToRecv);
 	}
 
-	void setExpectedCompletion(long expectedPacketDelayMs, long packetsLeft) {
+	final void setExpectedCompletion(long expectedPacketDelayMs, long packetsLeft) {
 	    this.expectedCompletion = System.currentTimeMillis()
 		    + (expectedPacketDelayMs * ((packetsLeft > 0) ? packetsLeft
 			    : 5));
@@ -674,12 +677,28 @@ public final class Conduit extends AbstractSelectableChannel {
 		    "Attempt to create a Conduit using"
 			    + " a SelectableChannel that does not implement the ByteChannel interface!");
 	}
+	if (c.isBlocking()) {
+	    throw new IllegalStateException("Attempt to create a Conduit using"
+		    + " a SelectableChannel in blocking mode!");
+	}
 	if (c.register(c.provider().openSelector(), c.validOps())
 		.isConnectable()) {
 	    throw new IllegalArgumentException(
 		    "Attempt to create a Conduit using a SelectableChannel that has"
 			    + " not completed it's connection!");
 	}
+	/*
+	 * try { ((ByteChannel) c).write(ByteBuffer.allocate(0)); } catch
+	 * (NotYetConnectedException e) { throw (IllegalArgumentException) new
+	 * IllegalArgumentException( "Attempt to create a Conduit using a
+	 * ByteChannel that is not yet connected!") .initCause(e); }
+	 */// throw new IllegalArgumentException("Attempt to create a
+		// Conduit
+	// using"
+	// +" a SelectableChannel in blocking mode that has already
+	// registered"
+	// +" with a Selector!");
+	// }
 	// if (c.isBlocking() && c.isRegistered()) {
 	// throw new IllegalArgumentException("Attempt to create a Conduit
 	// using"
@@ -716,7 +735,7 @@ public final class Conduit extends AbstractSelectableChannel {
 	this.setPacketFactory(pf);
 	this.lastPacketRecvTimes = new long[NUM_PACKET_RECV_TIMES];
 	for (int i = 0; i < NUM_PACKET_RECV_TIMES; i++) {
-	    this.lastPacketRecvTimes[i] = i * expectedPacketLagMs;
+	    this.lastPacketRecvTimes[i] = -1;
 	}
 	this.recvTimesSum = NUM_PACKET_RECV_TIMES * expectedPacketLagMs;
 	addConduit(this);
@@ -837,10 +856,14 @@ public final class Conduit extends AbstractSelectableChannel {
 	    if (!this.outBndlQueues.isEmpty() || !this.inBndlQueues.isEmpty()) {
 		// Have we timed out?
 		long td = (System.currentTimeMillis() - this.lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 1]);
-		if (td > (LAG_TIMEOUT_MULTIPLE * expectedPacketLagMs)) {
-		    if (++(this.numTimeouts) >= Conduit.MAX_TIMEOUTS_TIL_EXCEPTION) {
-			if (td > Conduit.MIN_LAG_BEFORE_EXCEPTION) {
-			    throw new RuntimeException("Conduit timed out!");
+		if (this.lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 1] == -1) {
+		    this.lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 1] = td;
+		} else {
+		    if (td > (LAG_TIMEOUT_MULTIPLE * expectedPacketLagMs)) {
+			if (++(this.numTimeouts) >= Conduit.MAX_TIMEOUTS_TIL_EXCEPTION) {
+			    if (td > Conduit.MIN_LAG_BEFORE_EXCEPTION) {
+				throw new RuntimeException("Conduit timed out!");
+			    }
 			}
 		    }
 		}
@@ -857,9 +880,9 @@ public final class Conduit extends AbstractSelectableChannel {
     }
 
     /**
-         * 'raw' read of characters directly from the (buffering)
-         * {@link InputStreamReader}
-         */
+	 * 'raw' read of characters directly from the (buffering)
+	 * {@link InputStreamReader}
+	 */
     synchronized public int read(char[] cbuf, int off, int len)
 	    throws IOException {
 	int retValue;
@@ -873,12 +896,12 @@ public final class Conduit extends AbstractSelectableChannel {
     }
 
     /**
-         * Places the next available bundle contents into the supplied buffer.
-         * 
-         * @param buf
-         *                The {@link ByteBuffer}to place the data in.
-         * @return Number of bytes read into buffer.
-         */
+	 * Places the next available bundle contents into the supplied buffer.
+	 *
+	 * @param buf
+	 *                The {@link ByteBuffer}to place the data in.
+	 * @return Number of bytes read into buffer.
+	 */
     synchronized public int read(ByteBuffer buf) {
 	int retValue = 0;
 	if (!readBufs.isEmpty()) {
@@ -890,11 +913,11 @@ public final class Conduit extends AbstractSelectableChannel {
     }
 
     /**
-         * Returns the next available bundle contents buffer.
-         * 
-         * @return The buffer with the next available bundle's content, or null
-         *         if no bundles are available.
-         */
+	 * Returns the next available bundle contents buffer.
+	 *
+	 * @return The buffer with the next available bundle's content, or null
+	 *         if no bundles are available.
+	 */
     synchronized public ByteBuffer read() {
 	ByteBuffer retValue = null;
 	if (!readBufs.isEmpty()) {
@@ -904,12 +927,12 @@ public final class Conduit extends AbstractSelectableChannel {
     }
 
     /**
-         * Attempts to parse out {@link Packet}s from the recvReadBuf and place
-         * them into the input bundle queue. If a bundle is completed, places it
-         * into the readBufs array.
-         * 
-         * @throws IOException
-         */
+	 * Attempts to parse out {@link Packet}s from the recvReadBuf and place
+	 * them into the input bundle queue. If a bundle is completed, places it
+	 * into the readBufs array.
+	 *
+	 * @throws IOException
+	 */
     synchronized public void internalRead() throws IOException {
 	int bndlLen = 0;
 	int i;
@@ -951,26 +974,29 @@ public final class Conduit extends AbstractSelectableChannel {
 		// If buffer was null or not enough data yet for a Packet
 		// TBD: handle bad datastream
 		/*
-                 * throw new RuntimeException("Connection could not" + " receive
-                 * a valid Packet!\nbuf={len " + recvReadBuf.remaining() + "}" +
-                 * Buffer.toString(recvReadBuf));
-                 */
+		 * throw new RuntimeException("Connection could not" + " receive
+		 * a valid Packet!\nbuf={len " + recvReadBuf.remaining() + "}" +
+		 * Buffer.toString(recvReadBuf));
+		 */
 	    } else {
 		gotOne = true;
 		assert (log.info("***Received packet: " + p.toString()));
 		this.numTimeouts = 0;
 		// update expected packet lag time
-		this.recvTimesSum -= lastPacketRecvTimes[1]
-			- lastPacketRecvTimes[0];
+		this.recvTimesSum = 0;
+		this.recvTimeDivisor = 0;
+		for (i = NUM_PACKET_RECV_TIMES - 2; (i > 0)
+			&& (lastPacketRecvTimes[i] != -1); i--) {
+		    this.recvTimesSum += (lastPacketRecvTimes[i + 1] - lastPacketRecvTimes[i]);
+		    this.recvTimeDivisor++;
+		}
 		for (i = 1; i < NUM_PACKET_RECV_TIMES; i++) {
 		    lastPacketRecvTimes[i - 1] = lastPacketRecvTimes[i];
 		}
 		lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 1] = System
 			.currentTimeMillis();
-		this.recvTimesSum += lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 1]
-			- lastPacketRecvTimes[NUM_PACKET_RECV_TIMES - 2];
-		newExpectedPacketLagMs = this.recvTimesSum
-			/ NUM_PACKET_RECV_TIMES;
+		newExpectedPacketLagMs = (this.recvTimesSum == 0) ? this.expectedPacketLagMs
+			: this.recvTimesSum / this.recvTimeDivisor;
 		expectedPacketLagMsDelta = this.expectedPacketLagMs
 			- newExpectedPacketLagMs;
 		this.expectedPacketLagMs = newExpectedPacketLagMs;
@@ -1188,8 +1214,8 @@ public final class Conduit extends AbstractSelectableChannel {
     }
 
     /**
-         * 'raw' write of characters directly to the {@link ByteChannel}
-         */
+	 * 'raw' write of characters directly to the {@link ByteChannel}
+	 */
     synchronized public void write(char[] cbuf, int off, int len)
 	    throws IOException {
 	if (this.sendBuf.capacity() < (2 * len)) {
@@ -1208,15 +1234,15 @@ public final class Conduit extends AbstractSelectableChannel {
     }
 
     /**
-         * Flushes the output buffered with the
-         * {@link Conduit#write(char[],int,int)}method. This method does
-         * nothing (other than synchronize), as the output will always have been
-         * flushed as part of the call to {@link Conduit#write(char[],int,int)}.
-         * 
-         * TBD: implement flush when Conduit buffers writes
-         * 
-         * @throws IOException
-         */
+	 * Flushes the output buffered with the
+	 * {@link Conduit#write(char[],int,int)}method. This method does
+	 * nothing (other than synchronize), as the output will always have been
+	 * flushed as part of the call to {@link Conduit#write(char[],int,int)}.
+	 *
+	 * TBD: implement flush when Conduit buffers writes
+	 *
+	 * @throws IOException
+	 */
     synchronized public void flush() throws IOException {/* nothin' to do */
     }
 

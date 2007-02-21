@@ -40,206 +40,206 @@ public final class GenericCodeVersion
     extends AbstractCodeVersion
 {
 
-    public static final CodeVersion implCodeVersion = new GenericCodeVersion(
-        "1.3a");
+    public static final CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
+    .codeVersionFromCVSRevisionString("$Revision$");
 
     public static final GenericCodeVersion NULL_CODE_VERSION = new GenericCodeVersion();
 
     private static final long serialVersionUID = 6412827940260729099L;
 
     private static final java.util.regex.Pattern CVS_REVISION_PATTERN = java.util.regex.Pattern
-        .compile("\\A\\$"
-            + "Revision: (\\d+(\\.\\d+(\\.\\d+(\\.\\d+)?)?)?) \\$\\Z");
+	.compile("\\A\\$"
+	    + "Revision: (\\d+(\\.\\d+(\\.\\d+(\\.\\d+)?)?)?) \\$\\Z");
 
     /** Creates a new instance of GenericVersion */
     private GenericCodeVersion() {
-        super();
+	super();
     }
 
     public GenericCodeVersion(final String version) {
-        super(version);
+	super(version);
     }
 
     public GenericCodeVersion(final CodeVersion version)
-        throws AssertionError
+	throws AssertionError
     {
-        super((AbstractCodeVersion) version);
-        if (version == NULL_CODE_VERSION) { throw new java.lang.AssertionError(
-            new IllegalArgumentException(
-                "Attempt to create a duplicate nullVersion object")); }
+	super((AbstractCodeVersion) version);
+	if (version == NULL_CODE_VERSION) { throw new java.lang.AssertionError(
+	    new IllegalArgumentException(
+		"Attempt to create a duplicate nullVersion object")); }
     }
 
     public GenericCodeVersion(final int major, final int minor,
-        final int maint, final int patch, final char build)
+	final int maint, final int patch, final char build)
     {
-        super(major, minor, maint, patch, build);
+	super(major, minor, maint, patch, build);
     }
 
     public GenericCodeVersion(final int major, final int minor,
-        final int maint, final int patch, final String build)
+	final int maint, final int patch, final String build)
     {
-        super(major, minor, maint, patch, build);
+	super(major, minor, maint, patch, build);
     }
 
     public GenericCodeVersion(final int major, final int minor,
-        final int maint, final int patch)
+	final int maint, final int patch)
     {
-        super(major, minor, maint, patch, DEFAULT_BUILD_VERSION);
+	super(major, minor, maint, patch, DEFAULT_BUILD_VERSION);
     }
 
     public GenericCodeVersion(final int major, final int minor,
-        final int maint, final char build)
+	final int maint, final char build)
     {
-        super(major, minor, maint, DEFAULT_PATCH_VERSION, build);
+	super(major, minor, maint, DEFAULT_PATCH_VERSION, build);
     }
 
     public GenericCodeVersion(int major, int minor, int maint, String build)
     {
-        super(major, minor, maint, DEFAULT_PATCH_VERSION, build);
+	super(major, minor, maint, DEFAULT_PATCH_VERSION, build);
     }
 
     public GenericCodeVersion(int major, int minor, int maint) {
-        super(major, minor, maint, DEFAULT_PATCH_VERSION,
-            DEFAULT_BUILD_VERSION);
+	super(major, minor, maint, DEFAULT_PATCH_VERSION,
+	    DEFAULT_BUILD_VERSION);
     }
 
     public GenericCodeVersion(int major, int minor, char build) {
-        super(major, minor, DEFAULT_MAINTENANCE_VERSION,
-            DEFAULT_PATCH_VERSION, build);
+	super(major, minor, DEFAULT_MAINTENANCE_VERSION,
+	    DEFAULT_PATCH_VERSION, build);
     }
 
     public GenericCodeVersion(int major, int minor, String build) {
-        super(major, minor, DEFAULT_MAINTENANCE_VERSION,
-            DEFAULT_PATCH_VERSION, build);
+	super(major, minor, DEFAULT_MAINTENANCE_VERSION,
+	    DEFAULT_PATCH_VERSION, build);
     }
 
     public GenericCodeVersion(int major, int minor) {
-        super(major, minor, DEFAULT_MAINTENANCE_VERSION,
-            DEFAULT_PATCH_VERSION, DEFAULT_BUILD_VERSION);
+	super(major, minor, DEFAULT_MAINTENANCE_VERSION,
+	    DEFAULT_PATCH_VERSION, DEFAULT_BUILD_VERSION);
     }
 
     public GenericCodeVersion(int major, char build) {
-        super(major, DEFAULT_MINOR_VERSION, DEFAULT_MAINTENANCE_VERSION,
-            DEFAULT_PATCH_VERSION, build);
+	super(major, DEFAULT_MINOR_VERSION, DEFAULT_MAINTENANCE_VERSION,
+	    DEFAULT_PATCH_VERSION, build);
     }
 
     public GenericCodeVersion(int major, String build) {
-        super(major, DEFAULT_MINOR_VERSION, DEFAULT_MAINTENANCE_VERSION,
-            DEFAULT_PATCH_VERSION, build);
+	super(major, DEFAULT_MINOR_VERSION, DEFAULT_MAINTENANCE_VERSION,
+	    DEFAULT_PATCH_VERSION, build);
     }
 
     public GenericCodeVersion(int major) {
-        super(major, DEFAULT_MINOR_VERSION, DEFAULT_MAINTENANCE_VERSION,
-            DEFAULT_PATCH_VERSION, DEFAULT_BUILD_VERSION);
+	super(major, DEFAULT_MINOR_VERSION, DEFAULT_MAINTENANCE_VERSION,
+	    DEFAULT_PATCH_VERSION, DEFAULT_BUILD_VERSION);
     }
 
     public CodeVersion asCodeVersion() {
-        return (GenericCodeVersion) this.clone();
+	return (GenericCodeVersion) this.clone();
     }
 
     public static CodeVersion codeVersionFromCVSRevisionString(
-        final String version)
+	final String version)
     {
-        String v = null;
-        Matcher m = CVS_REVISION_PATTERN.matcher(version);
-        if (m.matches()) {
-            v = m.group(1);
-        }
-        return asCodeVersion(v);
+	String v = null;
+	Matcher m = CVS_REVISION_PATTERN.matcher(version);
+	if (m.matches()) {
+	    v = m.group(1);
+	}
+	return asCodeVersion(v);
     }
 
     public static CodeVersion asCodeVersion(final String version) {
-        GenericCodeVersion v = null;
-        int[] ver = new int[] {
-            DEFAULT_MAJOR_VERSION, DEFAULT_MINOR_VERSION,
-            DEFAULT_MAINTENANCE_VERSION, DEFAULT_PATCH_VERSION };
-        char buil = DEFAULT_BUILD_VERSION;
-        try {
-            java.io.Reader r = new java.io.StringReader(version);
-            StreamTokenizer st = new StreamTokenizer(r);
-            st.resetSyntax();
-            //st.parseNumbers(); // doesn't work 'cause it parses as decimal
-            // even though we set '.' and '-' to ordinary characters!
-            //st.ordinaryChar('.');
-            //st.ordinaryChar('-');
-            st.eolIsSignificant(true);
-            st.wordChars('0', '9');
-            boolean valid = true;
-            boolean done = false;
-            boolean mustEnd = false;
-            int i = 0;
-            while ( (valid) && (!done) && (i++ < 4)) {
-                // first token must be an integer, and only numbers are words
-                if (st.nextToken() != StreamTokenizer.TT_WORD) {
-                    if ( (st.ttype == StreamTokenizer.TT_EOF)
-                        || (st.ttype == StreamTokenizer.TT_EOL))
-                    {
-                        done = true;
-                        if (!mustEnd)
-                            valid = false;
-                    } else
-                        valid = false;
-                } else {
-                    try {
-                        ver[i - 1] = Integer.valueOf(st.sval).intValue();
-                    } catch (NumberFormatException e) {
-                        valid = false;
-                    }
-                    // are we done?
-                    if ( (st.nextToken() == StreamTokenizer.TT_EOF)
-                        || (st.ttype == StreamTokenizer.TT_EOL))
-                    {
-                        done = true;
-                    } else {
-                        // next token must be a single lowercase alpha char or
-                        // '.'
-                        if ( (mustEnd)
-                            || ( (st.ttype != '.') && ( (st.ttype < 'a') || (st.ttype > 'z'))))
-                        {
-                            valid = false;
-                        } else {
-                            if (st.ttype != '.') {
-                                buil = (char) st.ttype;
-                                mustEnd = true;
-                            }
-                        }
-                    }
-                }
-            }
-            if ( (ver[0] == DEFAULT_MAJOR_VERSION)
-                && (ver[1] == DEFAULT_MINOR_VERSION)
-                && (ver[2] == DEFAULT_MAINTENANCE_VERSION)
-                && (ver[3] == DEFAULT_PATCH_VERSION)
-                && (buil == DEFAULT_BUILD_VERSION))
-                valid = false;
-            if (valid && ( (i > 4) && (!mustEnd)))
-                valid = false;
-            if ( (i < 6) && valid) {
-                v = new GenericCodeVersion(ver[0], ver[1], ver[2], ver[3],
-                    buil);
-            } else {
-                v = null;
-            }
-        } catch (java.io.IOException e) {
-            v = null;
-        } catch (NullPointerException e) {
-            v = null;
-        }
-        return v;
+	GenericCodeVersion v = null;
+	int[] ver = new int[] {
+	    DEFAULT_MAJOR_VERSION, DEFAULT_MINOR_VERSION,
+	    DEFAULT_MAINTENANCE_VERSION, DEFAULT_PATCH_VERSION };
+	char buil = DEFAULT_BUILD_VERSION;
+	try {
+	    java.io.Reader r = new java.io.StringReader(version);
+	    StreamTokenizer st = new StreamTokenizer(r);
+	    st.resetSyntax();
+	    //st.parseNumbers(); // doesn't work 'cause it parses as decimal
+	    // even though we set '.' and '-' to ordinary characters!
+	    //st.ordinaryChar('.');
+	    //st.ordinaryChar('-');
+	    st.eolIsSignificant(true);
+	    st.wordChars('0', '9');
+	    boolean valid = true;
+	    boolean done = false;
+	    boolean mustEnd = false;
+	    int i = 0;
+	    while ( (valid) && (!done) && (i++ < 4)) {
+		// first token must be an integer, and only numbers are words
+		if (st.nextToken() != StreamTokenizer.TT_WORD) {
+		    if ( (st.ttype == StreamTokenizer.TT_EOF)
+			|| (st.ttype == StreamTokenizer.TT_EOL))
+		    {
+			done = true;
+			if (!mustEnd)
+			    valid = false;
+		    } else
+			valid = false;
+		} else {
+		    try {
+			ver[i - 1] = Integer.valueOf(st.sval).intValue();
+		    } catch (NumberFormatException e) {
+			valid = false;
+		    }
+		    // are we done?
+		    if ( (st.nextToken() == StreamTokenizer.TT_EOF)
+			|| (st.ttype == StreamTokenizer.TT_EOL))
+		    {
+			done = true;
+		    } else {
+			// next token must be a single lowercase alpha char or
+			// '.'
+			if ( (mustEnd)
+			    || ( (st.ttype != '.') && ( (st.ttype < 'a') || (st.ttype > 'z'))))
+			{
+			    valid = false;
+			} else {
+			    if (st.ttype != '.') {
+				buil = (char) st.ttype;
+				mustEnd = true;
+			    }
+			}
+		    }
+		}
+	    }
+	    if ( (ver[0] == DEFAULT_MAJOR_VERSION)
+		&& (ver[1] == DEFAULT_MINOR_VERSION)
+		&& (ver[2] == DEFAULT_MAINTENANCE_VERSION)
+		&& (ver[3] == DEFAULT_PATCH_VERSION)
+		&& (buil == DEFAULT_BUILD_VERSION))
+		valid = false;
+	    if (valid && ( (i > 4) && (!mustEnd)))
+		valid = false;
+	    if ( (i < 6) && valid) {
+		v = new GenericCodeVersion(ver[0], ver[1], ver[2], ver[3],
+		    buil);
+	    } else {
+		v = null;
+	    }
+	} catch (java.io.IOException e) {
+	    v = null;
+	} catch (NullPointerException e) {
+	    v = null;
+	}
+	return v;
     }
 
     protected Object clone() {
-        super.clone();
-        GenericCodeVersion v = null;
-        if (NULL_CODE_VERSION.equals(this))
-            v = NULL_CODE_VERSION;
-        if (null != this) // can't happen, right?
-            v = new GenericCodeVersion(this);
-        return v;
+	super.clone();
+	GenericCodeVersion v = null;
+	if (NULL_CODE_VERSION.equals(this))
+	    v = NULL_CODE_VERSION;
+	if (null != this) // can't happen, right?
+	    v = new GenericCodeVersion(this);
+	return v;
     }
 
     protected AbstractCodeVersion asAbstractCodeVersion(String version) {
-        return (AbstractCodeVersion) asCodeVersion(version);
+	return (AbstractCodeVersion) asCodeVersion(version);
     }
 
     // If we just deserialized a NULL_CODE_VERSION then we must return the
@@ -247,12 +247,12 @@ public final class GenericCodeVersion
     // to avoid possible hacking of an external reference to our private
     // fields.
     protected Object readResolve() throws java.io.ObjectStreamException {
-        GenericCodeVersion gcv;
-        if (NULL_CODE_VERSION.equals(this))
-            gcv = (GenericCodeVersion) NULL_CODE_VERSION;
-        else
-            gcv = new GenericCodeVersion(this);
-        return gcv;
+	GenericCodeVersion gcv;
+	if (NULL_CODE_VERSION.equals(this))
+	    gcv = (GenericCodeVersion) NULL_CODE_VERSION;
+	else
+	    gcv = new GenericCodeVersion(this);
+	return gcv;
     }
 
 }

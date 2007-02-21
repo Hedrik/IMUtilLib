@@ -57,68 +57,68 @@ import java.util.Stack;
 public final class TaskExecutorPool {
 
     /**
-         * Implementation file version. By convention, for use with
-         * {@link com.InfoMontage.util.CodeVersion} methods, implementation
-         * versions are kept in a public static field named
-         * <code>implCodeVersion</code>.
-         * 
-         * @see com.InfoMontage.util.CodeVersion
-         *      com.InfoMontage.version.CodeVersion
-         *      com.InfoMontage.version.GenericCodeVersion
-         */
+	 * Implementation file version. By convention, for use with
+	 * {@link com.InfoMontage.util.CodeVersion} methods, implementation
+	 * versions are kept in a public static field named
+	 * <code>implCodeVersion</code>.
+	 *
+	 * @see com.InfoMontage.util.CodeVersion
+	 *      com.InfoMontage.version.CodeVersion
+	 *      com.InfoMontage.version.GenericCodeVersion
+	 */
     public static CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
 	    .codeVersionFromCVSRevisionString("$Revision$");
 
     /**
-         * Comment for <code>taskThreadPool</code>
-         */
+	 * Comment for <code>taskThreadPool</code>
+	 */
     private final Stack taskThreadPool = new Stack();
 
     /**
-         * Comment for <code>taskThreadGroup</code>
-         */
+	 * Comment for <code>taskThreadGroup</code>
+	 */
     private final ThreadGroup taskThreadGroup;
 
     /**
-         * Comment for <code>activeTaskThreads</code>
-         */
+	 * Comment for <code>activeTaskThreads</code>
+	 */
     private java.util.Set activeTaskThreads;
 
     /**
-         * Comment for <code>taskThreadPoolMaxThreads</code>
-         */
+	 * Comment for <code>taskThreadPoolMaxThreads</code>
+	 */
     private int taskThreadPoolMaxThreads = Defaults.DEFAULT_TASK_EXECUTOR_POOL_RETAINED_EXECUTOR_THREADS;
 
     /**
-         * Comment for <code>absoluteMaxThreads</code>
-         */
+	 * Comment for <code>absoluteMaxThreads</code>
+	 */
     private int absoluteMaxThreads = Defaults.DEFAULT_TASK_EXECUTOR_POOL_MAXIMUM_EXECUTOR_THREADS;
 
     /**
-         * Comment for <code>taskThreadStackSize</code>
-         */
+	 * Comment for <code>taskThreadStackSize</code>
+	 */
     private int taskThreadStackSize = Defaults.DEFAULT_TASK_EXECUTOR_THREAD_STACK_SIZE;
 
     /**
-         * Comment for <code>name</code>
-         */
+	 * Comment for <code>name</code>
+	 */
     private final String name;
 
     /**
-         * Comment for <code>taskQueue</code>
-         */
+	 * Comment for <code>taskQueue</code>
+	 */
     private TaskQueue taskQueue = null;
 
     /**
-         * Logger for this class
-         */
+	 * Logger for this class
+	 */
     private static final AssertableLogger log = new AssertableLogger(
 	    TaskExecutorPool.class.getName());
 
     /**
-         * This constructor is private, since {@link TaskExecutorPool}s are
-         * intended to be created through a static method.
-         */
+	 * This constructor is private, since {@link TaskExecutorPool}s are
+	 * intended to be created through a static method.
+	 */
     private TaskExecutorPool() {
 	if (log.isLoggable(Level.FINER)) {
 	    log.entering("com.InfoMontage.task.TaskExecutorPool",
@@ -135,11 +135,11 @@ public final class TaskExecutorPool {
     }
 
     /**
-         * This constructor is private, since {@link TaskExecutorPool}s are
-         * intended to be created through a static method.
-         * 
-         * @param name
-         */
+	 * This constructor is private, since {@link TaskExecutorPool}s are
+	 * intended to be created through a static method.
+	 *
+	 * @param name
+	 */
     private TaskExecutorPool(String name) {
 	if (log.isLoggable(Level.FINER)) {
 	    log.entering("com.InfoMontage.task.TaskExecutorPool",
@@ -158,8 +158,8 @@ public final class TaskExecutorPool {
     }
 
     /**
-         * @return a TaskExecutorPool with defaults for all parameters.
-         */
+	 * @return a TaskExecutorPool with defaults for all parameters.
+	 */
     public static TaskExecutorPool getPool() {
 	if (log.isLoggable(Level.FINER)) {
 	    log.entering("com.InfoMontage.task.TaskExecutorPool", "getPool()",
@@ -183,10 +183,10 @@ public final class TaskExecutorPool {
     }
 
     /**
-         * @param name
-         * @return a TaskExecutorPool with the specified name and default values
-         *         for all parameters.
-         */
+	 * @param name
+	 * @return a TaskExecutorPool with the specified name and default values
+	 *         for all parameters.
+	 */
     public static TaskExecutorPool getPool(String name) {
 	if (log.isLoggable(Level.FINER)) {
 	    log.entering("com.InfoMontage.task.TaskExecutorPool",
@@ -327,17 +327,17 @@ public final class TaskExecutorPool {
     }
 
     /**
-         * @param ttf
-         * @param retainedPoolSize
-         * @param absoluteMaxThreads
-         * @param allowBlocking
-         * @param threadStackSize
-         * @param taskQueueCapacity
-         * @param taskQueueCapacityIncrement
-         * @param taskQueueMaxCapacity
-         * @throws OutOfMemoryError
-         *                 TBD: do
-         */
+	 * @param ttf
+	 * @param retainedPoolSize
+	 * @param absoluteMaxThreads
+	 * @param allowBlocking
+	 * @param threadStackSize
+	 * @param taskQueueCapacity
+	 * @param taskQueueCapacityIncrement
+	 * @param taskQueueMaxCapacity
+	 * @throws OutOfMemoryError
+	 *                 TBD: do
+	 */
     private static void initializeTaskExecutorPool(TaskExecutorPool ttf,
 	    int retainedPoolSize, int absoluteMaxThreads,
 	    boolean allowBlocking, int threadStackSize, int taskQueueCapacity,
@@ -416,27 +416,27 @@ public final class TaskExecutorPool {
     }
 
     /**
-         * This is the primary function of the TaskExecutorPool. Given a Task,
-         * this function will attempt to assign it to a TaskExecutor from the
-         * taskThreadPool. If no TaskExecutor is currently available, and if
-         * allowBlocking is true, then this function will block, to wait for a
-         * TaskExecutor to become available for the execution of Task t. A
-         * TaskExecutor is considered available if it is in a waiting state, as
-         * specified by it's isWaiting() function.
-         * 
-         * @param t
-         *                The task to perform
-         * @param p
-         *                The parameters to be used by the task
-         * @return An ExecutionState object if execution of task has started;
-         *         <BR>
-         *         null if the task will not be executed.
-         * @throws InterruptedException
-         *                 if the thread calling this function is interrupted
-         *                 while waiting for the TaskExecutorPool's blocking
-         *                 task executor thread. This will only happen if
-         *                 allowBlocking is true.
-         */
+	 * This is the primary function of the TaskExecutorPool. Given a Task,
+	 * this function will attempt to assign it to a TaskExecutor from the
+	 * taskThreadPool. If no TaskExecutor is currently available, and if
+	 * allowBlocking is true, then this function will block, to wait for a
+	 * TaskExecutor to become available for the execution of Task t. A
+	 * TaskExecutor is considered available if it is in a waiting state, as
+	 * specified by it's isWaiting() function.
+	 *
+	 * @param t
+	 *                The task to perform
+	 * @param p
+	 *                The parameters to be used by the task
+	 * @return An ExecutionState object if execution of task has started;
+	 *         <BR>
+	 *         null if the task will not be executed.
+	 * @throws InterruptedException
+	 *                 if the thread calling this function is interrupted
+	 *                 while waiting for the TaskExecutorPool's blocking
+	 *                 task executor thread. This will only happen if
+	 *                 allowBlocking is true.
+	 */
     public ExecutionState doTask(Task t, Object[] p, boolean allowBlocking)
 	    throws InterruptedException {
 	if (log.isLoggable(Level.FINER)) {
@@ -504,8 +504,8 @@ public final class TaskExecutorPool {
     }
 
     /**
-         * Only the TaskExecutor should be calling this method...
-         */
+	 * Only the TaskExecutor should be calling this method...
+	 */
     void returnTaskExecutor(TaskExecutor mpt) {
 	if (log.isLoggable(Level.FINER)) {
 	    log.entering("com.InfoMontage.task.TaskExecutorPool",
@@ -519,7 +519,7 @@ public final class TaskExecutorPool {
 	synchronized (taskThreadPool) {
 	    if (taskThreadPool.size() <= taskThreadPoolMaxThreads) {
 		taskThreadPool.addElement(mpt);
-		taskThreadPool.notify();
+		taskThreadPool.notifyAll();
 	    } else {
 		mpt.stopRunning();
 	    }

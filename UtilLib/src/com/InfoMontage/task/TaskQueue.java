@@ -41,21 +41,21 @@ import com.InfoMontage.version.CodeVersion;
 public class TaskQueue {
 
     /**
-         * Logger for this class
-         */
+	 * Logger for this class
+	 */
     private static final AssertableLogger log = new AssertableLogger(
 	    TaskQueue.class.getName());
 
     /**
-         * Implementation file version. By convention, for use with
-         * {@link com.InfoMontage.util.CodeVersion} methods, implementation
-         * versions are kept in a public static field named
-         * <code>implCodeVersion</code>.
-         * 
-         * @see com.InfoMontage.util.CodeVersion
-         *      com.InfoMontage.version.CodeVersion
-         *      com.InfoMontage.version.GenericCodeVersion
-         */
+	 * Implementation file version. By convention, for use with
+	 * {@link com.InfoMontage.util.CodeVersion} methods, implementation
+	 * versions are kept in a public static field named
+	 * <code>implCodeVersion</code>.
+	 *
+	 * @see com.InfoMontage.util.CodeVersion
+	 *      com.InfoMontage.version.CodeVersion
+	 *      com.InfoMontage.version.GenericCodeVersion
+	 */
     public static CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
 	    .codeVersionFromCVSRevisionString("$Revision$");
 
@@ -68,10 +68,10 @@ public class TaskQueue {
     private int maxQueueSize;
 
     /**
-         * @param minimumQueueSize
-         * @param sizeIncrement
-         * @param maximumQueueSize
-         */
+	 * @param minimumQueueSize
+	 * @param sizeIncrement
+	 * @param maximumQueueSize
+	 */
     TaskQueue(int minimumQueueSize, int sizeIncrement, int maximumQueueSize) {
 	if (log.isLoggable(Level.FINER)) {
 	    log.entering("com.InfoMontage.task.TaskQueue",
@@ -96,8 +96,8 @@ public class TaskQueue {
     }
 
     /**
-         * @param q
-         */
+	 * @param q
+	 */
     TaskQueue(final TaskQueue q) {
 	if (log.isLoggable(Level.FINER)) {
 	    log.entering("com.InfoMontage.task.TaskQueue",
@@ -183,7 +183,7 @@ public class TaskQueue {
 	synchronized (queue) {
 	    t = (Task) queue.firstElement();
 	    queue.remove(t);
-	    queue.notify();
+	    queue.notifyAll();
 	}
 
 	if (log.isLoggable(Level.FINER)) {
@@ -194,8 +194,8 @@ public class TaskQueue {
     }
 
     /**
-         * @return Returns the maximum queue size.
-         */
+	 * @return Returns the maximum queue size.
+	 */
     int getMaxQueueSize() {
 	if (log.isLoggable(Level.FINER)) {
 	    log.entering("com.InfoMontage.task.TaskQueue", "getMaxQueueSize()",
@@ -210,8 +210,8 @@ public class TaskQueue {
     }
 
     /**
-         * @see java.lang.Object#toString()
-         */
+	 * @see java.lang.Object#toString()
+	 */
     public synchronized String toString() {
 	if (log.isLoggable(Level.FINER)) {
 	    log.entering("com.InfoMontage.task.TaskQueue", "toString()",

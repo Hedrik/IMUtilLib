@@ -37,60 +37,61 @@ import com.InfoMontage.version.GenericCodeVersion;
  * @author  Richard A. Mead <BR> Information Montage
  */
 class PacketFactory {
-    
-    public static CodeVersion implCodeVersion = new GenericCodeVersion("0.8a");
-    
+
+    public static CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
+    .codeVersionFromCVSRevisionString("$Revision$");
+
    /** The singleton instance of this class.
      */
     static private final PacketFactory singleton=new PacketFactory();
-    
+
     static PacketFactory getInstance() { return singleton; }
-    
+
     static private transient PacketFactory defaultPacketFactory=singleton;
-    
+
     static PacketFactory getDefaultPacketFactory() {
-        return defaultPacketFactory;
+	return defaultPacketFactory;
     }
-    
+
    /** PacketFactories are singletons.  Classes derived from PacketFactory
      * should by convention define a private parameterless constructor.
      */
     protected PacketFactory() {}
-    
+
     static void setDefaultPacketFactory(PacketFactory pktFact) {
-        if (pktFact==null) {
-            pktFact=PacketFactory.singleton;
-        }
-        synchronized (defaultPacketFactory) {
-            defaultPacketFactory=pktFact;
-        }
+	if (pktFact==null) {
+	    pktFact=PacketFactory.singleton;
+	}
+	synchronized (defaultPacketFactory) {
+	    defaultPacketFactory=pktFact;
+	}
     }
-    
+
     static short getDefaultPayloadSize() {
-        return Packet.DEFAULT_PACKET_PAYLOAD_LENGTH;
+	return Packet.DEFAULT_PACKET_PAYLOAD_LENGTH;
     }
-    
+
     static Packet getHeartbeatPacket() {
-        return Packet.getHeartbeatPacket();
+	return Packet.getHeartbeatPacket();
     }
-    
+
     static Packet[] decompose(ByteBuffer ibb,short psz,long gen, long bndl)
     throws IllegalArgumentException {
-        return Packet.decompose(ibb, psz, gen, bndl);
+	return Packet.decompose(ibb, psz, gen, bndl);
     }
-    
+
     static Packet newPacket(long gid, long mid, int pid, short l, byte[] p) {
-        return Packet.newPacket(gid,mid,pid,l,p);
+	return Packet.newPacket(gid,mid,pid,l,p);
     }
-    
+
     static ByteBuffer recombine(Packet[] pkts)
     throws IllegalArgumentException, NullPointerException {
-        return Packet.recombine(pkts);
+	return Packet.recombine(pkts);
     }
-    
+
     static Packet valueOf(ByteBuffer buf)
     throws IllegalArgumentException, BufferUnderflowException {
-        return Packet.valueOf(buf);
+	return Packet.valueOf(buf);
     }
-    
+
 }
