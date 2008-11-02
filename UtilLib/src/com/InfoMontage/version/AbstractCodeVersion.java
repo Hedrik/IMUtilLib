@@ -37,8 +37,9 @@ public abstract class AbstractCodeVersion
     implements CodeVersion
 {
 
-    public static CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
-    .codeVersionFromCVSRevisionString("$Revision$");
+    protected static final java.util.regex.Pattern CVS_REVISION_PATTERN = java.util.regex.Pattern
+	.compile("\\A\\$"
+	    + "Revision: (\\d+(\\.\\d+(\\.\\d+(\\.\\d+)?)?)?) \\$\\Z");
 
     protected final static int DEFAULT_MAJOR_VERSION = 0;
     protected final static int DEFAULT_MINOR_VERSION = 0;
@@ -46,6 +47,9 @@ public abstract class AbstractCodeVersion
     protected final static int DEFAULT_PATCH_VERSION = 0;
     protected final static char DEFAULT_BUILD_VERSION = 'a';
 
+    public static CodeVersion implCodeVersion = com.InfoMontage.version.GenericCodeVersion
+    .codeVersionFromCVSRevisionString("$Revision$");
+    
     private int major;
     private int minor;
     private int maint;

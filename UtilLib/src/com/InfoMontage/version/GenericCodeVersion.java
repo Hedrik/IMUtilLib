@@ -47,10 +47,6 @@ public final class GenericCodeVersion
 
     private static final long serialVersionUID = 6412827940260729099L;
 
-    private static final java.util.regex.Pattern CVS_REVISION_PATTERN = java.util.regex.Pattern
-	.compile("\\A\\$"
-	    + "Revision: (\\d+(\\.\\d+(\\.\\d+(\\.\\d+)?)?)?) \\$\\Z");
-
     /** Creates a new instance of GenericVersion */
     private GenericCodeVersion() {
 	super();
@@ -140,6 +136,8 @@ public final class GenericCodeVersion
     public static CodeVersion codeVersionFromCVSRevisionString(
 	final String version)
     {
+	if (null==CVS_REVISION_PATTERN)
+	    new GenericCodeVersion();
 	String v = null;
 	Matcher m = CVS_REVISION_PATTERN.matcher(version);
 	if (m.matches()) {
