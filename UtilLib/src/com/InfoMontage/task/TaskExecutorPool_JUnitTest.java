@@ -45,7 +45,8 @@ public class TaskExecutorPool_JUnitTest extends TestCase {
     volatile ExecutionState tes2;
 
     public static void main(String[] args) {
-	junit.swingui.TestRunner.run(TaskExecutorPool_JUnitTest.class);
+	//junit.swingui.TestRunner.run(TaskExecutorPool_JUnitTest.class);
+	junit.textui.TestRunner.run(TaskExecutorPool_JUnitTest.class);
     }
 
     /**

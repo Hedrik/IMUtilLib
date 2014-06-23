@@ -66,7 +66,8 @@ public class Conduit_JUnitTest extends TestCase {
     }
 
     public static void main(String[] args) {
-	junit.swingui.TestRunner.run(Conduit_JUnitTest.class);
+	//junit.swingui.TestRunner.run(Conduit_JUnitTest.class);
+	junit.textui.TestRunner.run(Conduit_JUnitTest.class);
     }
 
     public static Test suite() {
