@@ -70,7 +70,9 @@ public class GenericCodeVersion_TestClass
     }
 
     public static void main(String[] args) {
-        junit.swingui.TestRunner.run(GenericCodeVersion_TestClass.class);
+	//junit.swingui.TestRunner.run(GenericCodeVersion_TestClass.class);
+	junit.textui.TestRunner.run(GenericCodeVersion_TestClass.class);
+        //TestSuite suite= new TestSuite(GenericCodeVersion_TestClass.class);
     }
 
     /*
