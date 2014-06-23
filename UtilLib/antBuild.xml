@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project default="javadoc">
+	<target name="javadoc">
+		<javadoc access="private"
+		         author="true"
+		         linkoffline="http://junit.sourceforge.net/javadoc/ http://junit.sourceforge.net/javadoc/package-list"
+		         classpath="src;http://java.sun.com/j2se/1.4.2/docs/api/;http://junit.sourceforge.net/javadoc/"
+		         destdir="doc"
+		         nodeprecated="false"
+		         nodeprecatedlist="false"
+		         noindex="false"
+		         nonavbar="false"
+		         notree="false"
+				 packagenames="com.InfoMontage.*"
+				 source="1.4"
+		         sourcepath="src"
+		         splitindex="true"
+		         use="true"
+		         version="true"
+		/>
+	</target>
+</project>
